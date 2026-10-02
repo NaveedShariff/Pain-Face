@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "painface",
+      "runtimeExecutable": ".venv311/bin/python",
+      "runtimeArgs": ["-m", "painface.server"],
+      "port": 8000
+    }
+  ]
+}

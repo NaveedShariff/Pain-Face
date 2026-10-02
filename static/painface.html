@@ -1,0 +1,1385 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pain-Face — multimodal pain intensity</title>
+<style>
+/* ============================ design tokens ============================ */
+:root{
+  --bg:#070a10; --bg2:#0b1017; --panel:#111823; --panel2:#151d2a; --raise:#1b2534;
+  --line:#1e2938; --line2:#2a3747; --grid:#182130; --grid-major:#223047;
+  --ink:#e8eef7; --ink2:#b9c6d8; --muted:#73839a; --faint:#4a596e;
+  --calm:#35d0ba; --mild:#d9bf5a; --mod:#f0943c; --sev:#ea5f52; --crit:#e03a5a;
+  --pulse:#ff4d6d; --resp:#56b8e8; --auto:#a07cf0; --face:#35d0ba;
+  --r:#ff6b7f; --g:#55d6a0; --b:#5aa9f0;
+  --accent:var(--calm); --accent-soft:#35d0ba2e;
+  --shadow:0 1px 2px #0008, 0 8px 28px -12px #000a;
+  --radius:14px; --radius-s:9px;
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,system-ui,sans-serif;
+}
+:root[data-theme="light"]{
+  --bg:#f4f6fa; --bg2:#eef1f7; --panel:#fff; --panel2:#f7f9fc; --raise:#eef2f8;
+  --line:#dde3ec; --line2:#cbd5e2; --grid:#e6ebf3; --grid-major:#d4dde9;
+  --ink:#121923; --ink2:#38485e; --muted:#6b7b92; --faint:#9aa8bd;
+  --calm:#0f9e8b; --mild:#b08a14; --mod:#d2691e; --sev:#d03a2e; --crit:#b81d3c;
+  --shadow:0 1px 2px #0f172a14, 0 10px 30px -16px #0f172a2e;
+}
+*{box-sizing:border-box;min-width:0}
+html,body{margin:0}
+body{
+  background:
+    radial-gradient(1100px 620px at 14% -8%, #16314833, transparent 60%),
+    radial-gradient(900px 520px at 92% 0%, #2a1a4033, transparent 60%),
+    var(--bg);
+  color:var(--ink); font:14px/1.5 var(--sans);
+  -webkit-font-smoothing:antialiased; padding:0 0 64px;
+}
+h1,h2,h3{margin:0;font-weight:600;letter-spacing:-.01em}
+.sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+button,input,select{font:inherit;color:inherit}
+.num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+
+/* ============================== chrome ================================= */
+header{
+  position:sticky; top:0; z-index:40; display:flex; align-items:center; gap:14px;
+  padding:11px 20px; border-bottom:1px solid var(--line);
+  background:color-mix(in srgb, var(--bg) 86%, transparent);
+  backdrop-filter:blur(14px) saturate(1.3);
+}
+.brand{display:flex;align-items:center;gap:10px;margin-right:4px}
+.brand .mark{
+  width:30px;height:30px;border-radius:9px;display:grid;place-items:center;flex:none;
+  background:linear-gradient(145deg,var(--accent),color-mix(in srgb,var(--accent) 45%, #7b4bd6));
+  box-shadow:0 0 0 1px #fff2 inset, 0 4px 14px -4px var(--accent);
+  transition:background .5s, box-shadow .5s;
+}
+.brand .mark svg{width:17px;height:17px;display:block}
+.brand b{font-size:15px;letter-spacing:-.02em}
+.brand span{color:var(--muted);font-size:11px;display:block;line-height:1.1;letter-spacing:.02em}
+.seg{display:flex;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:2px;gap:2px}
+.seg button{
+  border:0;background:transparent;color:var(--ink2);padding:5px 11px;border-radius:8px;
+  cursor:pointer;font-size:12.5px;font-weight:500;transition:.16s;
+}
+.seg button:hover{color:var(--ink);background:var(--raise)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:#04121a;font-weight:600}
+:root[data-theme="light"] .seg button[aria-pressed="true"]{color:#fff}
+.spacer{flex:1}
+.chips{display:flex;gap:7px;flex-wrap:wrap}
+.chip{
+  display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;
+  background:var(--panel);border:1px solid var(--line);font-size:11.5px;color:var(--ink2);
+  white-space:nowrap;
+}
+.chip .dot{width:6px;height:6px;border-radius:50%;background:var(--faint);flex:none;transition:.3s}
+.chip.on .dot{background:var(--calm);box-shadow:0 0 0 3px #35d0ba26}
+.chip.warn .dot{background:var(--mod);box-shadow:0 0 0 3px #f0943c26}
+.chip.bad .dot{background:var(--sev);box-shadow:0 0 0 3px #ea5f5226}
+.btn{
+  border:1px solid var(--line2);background:var(--panel);color:var(--ink);
+  padding:7px 14px;border-radius:9px;cursor:pointer;font-size:13px;font-weight:500;
+  transition:.16s; display:inline-flex;align-items:center;gap:7px;
+}
+.btn:hover:not(:disabled){background:var(--raise);border-color:var(--accent)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.primary{background:var(--accent);border-color:transparent;color:#04121a;font-weight:600}
+:root[data-theme="light"] .btn.primary{color:#fff}
+.btn.primary:hover:not(:disabled){filter:brightness(1.08)}
+.btn.danger{border-color:#ea5f5255;color:var(--sev)}
+.btn.rec{background:var(--crit);border-color:transparent;color:#fff}
+
+/* =============================== layout ================================ */
+main{display:grid;grid-template-columns:repeat(12,1fr);gap:14px;padding:16px 20px;max-width:1800px;margin:0 auto}
+.card{
+  background:linear-gradient(180deg,var(--panel),var(--panel2));
+  border:1px solid var(--line); border-radius:var(--radius); padding:14px;
+  box-shadow:var(--shadow); display:flex; flex-direction:column; min-height:0;
+}
+.card>.hd{display:flex;align-items:baseline;gap:10px;margin:-2px 0 11px}
+.card>.hd h2{font-size:12px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:600}
+.card>.hd .aux{margin-left:auto;font-size:11px;color:var(--faint);font-variant-numeric:tabular-nums}
+.c3{grid-column:span 3} .c4{grid-column:span 4} .c5{grid-column:span 5}
+.c6{grid-column:span 6} .c7{grid-column:span 7} .c8{grid-column:span 8}
+.c9{grid-column:span 9} .c12{grid-column:span 12}
+@media(max-width:1500px){.c3{grid-column:span 4}.c4{grid-column:span 6}.c5{grid-column:span 6}.c7{grid-column:span 12}.c8{grid-column:span 12}.c9{grid-column:span 12}}
+@media(max-width:980px){main{grid-template-columns:1fr;padding:12px}
+  .c3,.c4,.c5,.c6,.c7,.c8,.c9,.c12{grid-column:span 1}}
+
+/* ============================ pain hero ================================ */
+.hero{
+  grid-column:span 5; position:relative; overflow:hidden;
+  background:
+    radial-gradient(520px 300px at 50% -30%, var(--accent-soft), transparent 70%),
+    linear-gradient(180deg,var(--panel),var(--panel2));
+}
+.hero.armed{border-color:color-mix(in srgb, var(--accent) 55%, var(--line))}
+.hero.armed::before{
+  content:""; position:absolute; inset:0; pointer-events:none;
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 40%,transparent),
+             inset 0 0 70px -22px var(--accent);
+  animation:breathe 2.4s ease-in-out infinite;
+}
+@keyframes breathe{0%,100%{opacity:.5}50%{opacity:1}}
+.gaugeWrap{position:relative;display:grid;place-items:center;padding:4px 0 0}
+.gaugeWrap svg{width:100%;max-width:330px;height:auto;display:block;overflow:visible}
+.gTrack{fill:none;stroke:var(--grid);stroke-width:15;stroke-linecap:round}
+.gFill{fill:none;stroke:var(--accent);stroke-width:15;stroke-linecap:round;
+  filter:drop-shadow(0 0 10px var(--accent)); transition:stroke-dashoffset .45s cubic-bezier(.3,.9,.25,1), stroke .5s}
+.gTick{stroke:var(--faint);stroke-width:1.5}
+.gaugeMid{position:absolute;top:50%;left:0;right:0;transform:translateY(-34%);text-align:center;pointer-events:none}
+.nrs{font:700 68px/0.9 var(--sans);letter-spacing:-.045em;font-variant-numeric:tabular-nums;
+  color:var(--accent); transition:color .5s; text-shadow:0 2px 30px var(--accent-soft)}
+.nrs small{font-size:21px;font-weight:600;color:var(--muted);letter-spacing:0}
+.painLabel{margin-top:5px;font-size:13px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);transition:color .5s}
+.gaugeScale{display:flex;justify-content:space-between;max-width:330px;margin:2px auto 0;font-size:10px;color:var(--faint);width:100%;padding:0 12px}
+.heroState{
+  display:flex;align-items:center;justify-content:center;gap:9px;margin:10px 0 2px;
+  padding:7px 12px;border-radius:10px;background:var(--raise);border:1px solid var(--line);
+  font-size:12px;color:var(--ink2);transition:.3s
+}
+.heroState.armed{background:color-mix(in srgb,var(--accent) 14%, var(--raise));border-color:color-mix(in srgb,var(--accent) 45%,var(--line));color:var(--ink)}
+.heroState .pip{width:8px;height:8px;border-radius:50%;background:var(--faint);flex:none}
+.heroState.armed .pip{background:var(--accent);box-shadow:0 0 0 4px var(--accent-soft);animation:pip 1.1s ease-in-out infinite}
+@keyframes pip{0%,100%{opacity:1}50%{opacity:.35}}
+.heroGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:11px}
+.hCell{background:var(--raise);border:1px solid var(--line);border-radius:var(--radius-s);padding:8px 9px}
+.hCell .k{font-size:9.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+.hCell .v{font:600 18px/1.25 var(--sans);font-variant-numeric:tabular-nums;margin-top:1px}
+.hCell .v small{font-size:11px;color:var(--muted);font-weight:500}
+
+/* ============================== meters ================================= */
+.rows{display:flex;flex-direction:column;gap:7px}
+.mrow{display:grid;grid-template-columns:112px 1fr 52px;align-items:center;gap:9px;font-size:12px}
+.mrow>label{color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mrow .code{font:600 11px var(--mono);color:var(--muted)}
+.track{height:7px;background:var(--grid);border-radius:999px;overflow:hidden;position:relative}
+.track .fill{height:100%;background:var(--accent);border-radius:999px;width:0;
+  transition:width .22s linear, background .3s}
+.track.thin{height:5px}
+.mrow output{text-align:right;font-variant-numeric:tabular-nums;color:var(--ink2);font-size:11.5px}
+.mrow.hot>label{color:var(--ink);font-weight:600}
+.mrow.hot .fill{background:var(--sev)}
+.mrow.pain .code{color:var(--mod)}
+
+/* AU grid */
+.auGrid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px 18px}
+@media(max-width:1200px){.auGrid{grid-template-columns:1fr}}
+.aurow{display:grid;grid-template-columns:40px 1fr 40px;align-items:center;gap:8px;font-size:11.5px;
+  padding:2px 4px;border-radius:6px;transition:background .2s}
+.aurow .code{font:600 11px var(--mono);color:var(--muted)}
+.aurow .nm{display:none}
+.aurow output{text-align:right;font-variant-numeric:tabular-nums;color:var(--muted);font-size:11px}
+.aurow.isPain .code{color:var(--mod)}
+.aurow.live{background:color-mix(in srgb,var(--sev) 12%, transparent)}
+.aurow.live .code{color:var(--sev)}
+.aurow.live output{color:var(--ink)}
+
+/* PSPI stack */
+.pspiBar{display:flex;height:26px;border-radius:8px;overflow:hidden;background:var(--grid);border:1px solid var(--line)}
+.pspiBar i{display:block;height:100%;transition:width .25s linear}
+.pspiLegend{display:grid;grid-template-columns:repeat(2,1fr);gap:5px 12px;margin-top:9px;font-size:11px}
+.pspiLegend div{display:flex;align-items:center;gap:6px;color:var(--ink2)}
+.pspiLegend i{width:9px;height:9px;border-radius:3px;flex:none}
+.pspiLegend b{margin-left:auto;font-variant-numeric:tabular-nums;color:var(--ink)}
+.bigRow{display:flex;align-items:baseline;gap:8px;margin-bottom:9px}
+.bigRow .n{font:700 30px/1 var(--sans);font-variant-numeric:tabular-nums;letter-spacing:-.03em}
+.bigRow .d{font-size:12px;color:var(--muted)}
+.bigRow .tag{margin-left:auto;font-size:10.5px;padding:3px 8px;border-radius:999px;background:var(--raise);border:1px solid var(--line);color:var(--ink2)}
+
+/* ============================== stage ================================== */
+.stage{position:relative;background:#000;border-radius:var(--radius-s);overflow:hidden;aspect-ratio:4/3;border:1px solid var(--line)}
+.stage video,.stage canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.stage video,.stage #overlay{transform:scaleX(-1)}
+.stage.nomirror video,.stage.nomirror #overlay{transform:none}
+.stage .tag{position:absolute;top:8px;left:8px;font-size:10.5px;padding:3px 8px;border-radius:999px;
+  background:#000000a8;color:#e8eef7;backdrop-filter:blur(6px);letter-spacing:.03em}
+.stage .msg{position:absolute;inset:auto 8px 8px;font-size:11.5px;padding:7px 10px;border-radius:8px;
+  background:#000000bb;color:#dbe5f2;backdrop-filter:blur(6px);line-height:1.4}
+.stageOpts{display:flex;gap:12px;flex-wrap:wrap;margin-top:9px;font-size:11.5px;color:var(--ink2)}
+.stageOpts label{display:inline-flex;align-items:center;gap:5px;cursor:pointer}
+.emoRow{display:flex;gap:5px;margin-top:9px;flex-wrap:wrap}
+.emo{flex:1 1 60px;background:var(--raise);border:1px solid var(--line);border-radius:7px;padding:5px 6px;text-align:center}
+.emo .k{font-size:9px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.emo .v{font:600 13px var(--sans);font-variant-numeric:tabular-nums;margin-top:1px}
+.emo.top{border-color:var(--accent);background:var(--accent-soft)}
+
+/* ============================== vitals ================================= */
+.vitalHero{display:flex;align-items:center;gap:14px;padding:4px 2px 12px}
+.heart{width:30px;height:30px;fill:var(--pulse);flex:none;filter:drop-shadow(0 0 7px #ff4d6d60)}
+.heart.beat{animation:beat .62s ease-out}
+@keyframes beat{0%{transform:scale(1)}18%{transform:scale(1.3)}40%{transform:scale(.97)}100%{transform:scale(1)}}
+.hrNum{font:700 46px/1 var(--sans);letter-spacing:-.04em;font-variant-numeric:tabular-nums}
+.hrUnit{font-size:10px;letter-spacing:.11em;color:var(--muted);text-transform:uppercase;margin-top:3px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:8px}
+.tile{background:var(--raise);border:1px solid var(--line);border-radius:var(--radius-s);padding:9px}
+.tile .k{font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.tile .v{font:600 20px/1.2 var(--sans);font-variant-numeric:tabular-nums;margin-top:2px}
+.tile .v small{font-size:10.5px;color:var(--muted);font-weight:500;margin-left:2px}
+.tile .n{font-size:9.5px;color:var(--faint);margin-top:2px}
+.tile.dim{opacity:.45}
+
+/* ============================== charts ================================= */
+.chart{position:relative;width:100%;height:120px}
+.chart.tall{height:170px}
+.chart.short{height:92px}
+.chart canvas{position:absolute;inset:0;width:100%;height:100%}
+.legend{display:flex;gap:11px;flex-wrap:wrap;margin-top:8px;font-size:10.5px;color:var(--ink2)}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend i{width:11px;height:3px;border-radius:2px;flex:none}
+
+/* ============================== tables ================================= */
+table{width:100%;border-collapse:collapse;font-size:12px}
+th,td{text-align:right;padding:6px 7px;border-bottom:1px solid var(--line)}
+th{color:var(--muted);font-weight:500;font-size:10px;text-transform:uppercase;letter-spacing:.06em}
+th:first-child,td:first-child{text-align:left}
+td{font-variant-numeric:tabular-nums;color:var(--ink2)}
+tbody tr:last-child td{border-bottom:0}
+tbody tr:hover td{background:var(--raise)}
+.empty{color:var(--faint);font-size:12px;padding:14px 2px;text-align:center}
+
+/* ============================= controls ================================ */
+.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.field label{display:block;font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
+.field input[type=text],.field select,.field input[type=number]{
+  width:100%;background:var(--bg2);border:1px solid var(--line2);border-radius:8px;padding:7px 9px;font-size:12.5px}
+.field input[type=range]{width:100%;accent-color:var(--accent)}
+.btnRow{display:flex;gap:8px;flex-wrap:wrap;margin-top:11px}
+.out{background:var(--bg2);border:1px solid var(--line);border-radius:var(--radius-s);padding:10px;
+  font:11.5px/1.55 var(--mono);color:var(--ink2);white-space:pre-wrap;max-height:150px;overflow:auto;margin:11px 0 0}
+.note{font-size:11px;color:var(--faint);margin:8px 0 0;line-height:1.5}
+footer{max-width:1800px;margin:4px auto 0;padding:14px 20px;color:var(--faint);font-size:11.5px;line-height:1.6}
+footer b{color:var(--muted)}
+</style>
+
+<header>
+  <div class="brand">
+    <div class="mark" id="mark">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#04121a" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 12h3l2-5 3 10 2.5-7 1.8 4H21"/>
+      </svg>
+    </div>
+    <div><b>Pain-Face</b><span>action units · rPPG · fused</span></div>
+  </div>
+
+  <div class="seg" role="group" aria-label="Source">
+    <button id="srcCam" data-src="camera" aria-pressed="true">Camera</button>
+    <button id="srcSim" data-src="sim" aria-pressed="false">Simulator</button>
+  </div>
+  <button class="btn primary" id="btnRun">Start</button>
+
+  <div class="spacer"></div>
+  <div class="chips">
+    <span class="chip" id="chipWs"><i class="dot"></i><span>engine —</span></span>
+    <span class="chip" id="chipDet"><i class="dot"></i><span>detector —</span></span>
+    <span class="chip" id="chipFace"><i class="dot"></i><span>face —</span></span>
+    <span class="chip" id="chipAu"><i class="dot"></i><span>— au/s</span></span>
+    <span class="chip" id="chipFps"><i class="dot"></i><span>— fps</span></span>
+    <button class="btn" id="btnTheme" title="Toggle theme" style="padding:5px 9px">◐</button>
+  </div>
+</header>
+
+<main>
+  <!-- ======================= pain intensity hero ======================= -->
+  <section class="card hero" id="hero" aria-label="Pain intensity">
+    <div class="hd"><h2>Pain intensity</h2><span class="aux" id="painAux">awaiting face</span></div>
+
+    <div class="gaugeWrap">
+      <svg viewBox="0 0 200 118" role="img" aria-labelledby="gaugeTitle">
+        <title id="gaugeTitle">Fused pain intensity on a 0 to 10 numeric rating scale</title>
+        <path class="gTrack" d="M18 104 A 82 82 0 0 1 182 104"/>
+        <path class="gFill" id="gFill" d="M18 104 A 82 82 0 0 1 182 104"/>
+        <g id="gTicks"></g>
+      </svg>
+      <div class="gaugeMid">
+        <div class="nrs" id="nrsNum">--<small>/10</small></div>
+        <div class="painLabel" id="painLabel">no reading</div>
+      </div>
+    </div>
+    <div class="gaugeScale"><span>0 none</span><span>5 moderate</span><span>10 worst</span></div>
+
+    <div class="heroState" id="heroState">
+      <i class="pip"></i><span id="heroStateTxt">Trigger idle — pain AUs below threshold</span>
+    </div>
+
+    <div class="heroGrid">
+      <div class="hCell"><div class="k">Facial (PSPI)</div><div class="v num" id="hFacial">—<small>%</small></div></div>
+      <div class="hCell"><div class="k">Autonomic</div><div class="v num" id="hAuto">—<small>%</small></div></div>
+      <div class="hCell"><div class="k">Confidence</div><div class="v num" id="hConf">—<small>%</small></div></div>
+    </div>
+    <p class="note" id="heroNote">Facial evidence is required: raised heart rate alone never registers as pain.</p>
+  </section>
+
+  <!-- ============================== stage ============================== -->
+  <section class="card c4" aria-label="Capture">
+    <div class="hd"><h2>Capture</h2><span class="aux" id="roiAux">ROI —</span></div>
+    <div class="stage" id="stage">
+      <video id="video" playsinline muted></video>
+      <canvas id="overlay"></canvas>
+      <span class="tag" id="stageTag">idle</span>
+      <div class="msg" id="stageMsg" hidden></div>
+    </div>
+    <div class="stageOpts">
+      <label><input type="checkbox" id="optMesh" checked> Landmarks</label>
+      <label><input type="checkbox" id="optRoi" checked> rPPG ROIs</label>
+      <label><input type="checkbox" id="optBox" checked> Face box</label>
+      <label><input type="checkbox" id="optSkin" checked> Skin mask</label>
+    </div>
+    <div class="emoRow" id="emoRow"></div>
+  </section>
+
+  <!-- ============================== PSPI =============================== -->
+  <section class="card c3" aria-label="PSPI breakdown">
+    <div class="hd"><h2>PSPI</h2><span class="aux">Prkachin &amp; Solomon</span></div>
+    <div class="bigRow">
+      <span class="n num" id="pspiNum">—</span><span class="d">/ 16</span>
+      <span class="tag" id="pspiTag">raw</span>
+    </div>
+    <div class="pspiBar" id="pspiBar"></div>
+    <div class="pspiLegend" id="pspiLegend"></div>
+    <div class="bigRow" style="margin:14px 0 7px">
+      <span class="n num" id="corrNum" style="font-size:22px">—</span><span class="d">% corrected</span>
+    </div>
+    <div class="rows">
+      <div class="mrow"><label>Smile evidence</label><div class="track thin"><div class="fill" id="mSmile" style="background:var(--mild)"></div></div><output id="oSmile">—</output></div>
+      <div class="mrow"><label>Open mouth</label><div class="track thin"><div class="fill" id="mMouth" style="background:var(--resp)"></div></div><output id="oMouth">—</output></div>
+    </div>
+    <p class="note">AU6 and AU10 are shared with smiling, so raw PSPI reads high on a grin. The corrected score discounts them when AU12 and a happy expression are present.</p>
+  </section>
+
+  <!-- ============================ AU matrix ============================ -->
+  <section class="card c5" aria-label="Action units">
+    <div class="hd"><h2>Action units</h2><span class="aux" id="auAux">20 · Py-Feat</span></div>
+    <div class="auGrid" id="auGrid"></div>
+    <p class="note">Highlighted rows are the pain-relevant AUs. Values are occurrence probabilities, not FACS 0–5 intensities.</p>
+  </section>
+
+  <!-- ============================= vitals ============================== -->
+  <section class="card c4" aria-label="Vitals from rPPG">
+    <div class="hd"><h2>rPPG vitals</h2><span class="aux" id="vitAux">buffer —</span></div>
+    <div class="vitalHero">
+      <svg class="heart" id="heart" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.5-4.6-10-9.3C.4 8.4 2.2 4.5 6 4.5c2.3 0 3.6 1.3 6 3.6 2.4-2.3 3.7-3.6 6-3.6 3.8 0 5.6 3.9 4 7.2C19.5 16.4 12 21 12 21z"/></svg>
+      <div>
+        <div class="hrNum num" id="hrNum">--</div>
+        <div class="hrUnit">beats / min · fused</div>
+      </div>
+      <div style="margin-left:auto;text-align:right">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em">Baseline</div>
+        <div class="num" id="baseState" style="font-size:12.5px;color:var(--ink2)">not set</div>
+      </div>
+    </div>
+    <div class="tiles" id="vitTiles"></div>
+  </section>
+
+  <!-- ============================ timeline ============================= -->
+  <section class="card c8" aria-label="Pain timeline">
+    <div class="hd"><h2>Pain timeline</h2><span class="aux" id="tlAux">—</span></div>
+    <div class="chart tall"><canvas id="cPain"></canvas></div>
+    <div class="legend">
+      <span><i style="background:var(--accent)"></i>fused NRS</span>
+      <span><i style="background:var(--mod)"></i>PSPI corrected</span>
+      <span><i style="background:var(--faint)"></i>PSPI raw</span>
+      <span><i style="background:var(--auto)"></i>autonomic</span>
+      <span><i style="background:var(--crit)"></i>episode</span>
+    </div>
+  </section>
+
+  <!-- ========================= pulse + spectrum ======================== -->
+  <section class="card c4" aria-label="Blood volume pulse">
+    <div class="hd"><h2>Pulse</h2><span class="aux" id="bvpAux">—</span></div>
+    <div class="chart"><canvas id="cBvp"></canvas></div>
+    <div class="hd" style="margin:12px 0 8px"><h2>Spectrum</h2><span class="aux">0.7–3.5 Hz</span></div>
+    <div class="chart short"><canvas id="cSpec"></canvas></div>
+  </section>
+
+  <!-- ============================ episodes ============================= -->
+  <section class="card c5" aria-label="Pain episodes">
+    <div class="hd"><h2>Episodes</h2><span class="aux" id="epAux">0</span></div>
+    <div style="overflow:auto;max-height:230px">
+      <table>
+        <thead><tr><th>#</th><th>Onset</th><th>Dur</th><th>Peak</th><th>Mean</th><th>Peak AUs</th></tr></thead>
+        <tbody id="tbEp"><tr><td colspan="6" class="empty">No pain episode recorded yet.</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ========================== method bank ============================ -->
+  <section class="card c3" aria-label="rPPG method bank">
+    <div class="hd"><h2>Method bank</h2><span class="aux">8 algorithms</span></div>
+    <div style="overflow:auto;max-height:230px">
+      <table>
+        <thead><tr><th>Method</th><th>HR</th><th>SNR</th></tr></thead>
+        <tbody id="tbMethods"><tr><td colspan="3" class="empty">Waiting for signal.</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============================ controls ============================= -->
+  <section class="card c4" aria-label="Protocol">
+    <div class="hd"><h2>Protocol</h2><span class="aux" id="sessAux">0 samples</span></div>
+    <div class="fields">
+      <div class="field"><label for="engUrl">Engine</label><input id="engUrl" type="text" value="http://localhost:8000"></div>
+      <div class="field"><label for="selPrimary">Waveform method</label><select id="selPrimary"></select></div>
+      <div class="field"><label for="winSec">HR window <output id="winOut">20</output> s</label><input id="winSec" type="range" min="8" max="60" step="1" value="20"></div>
+      <div class="field"><label for="auRate">AU rate <output id="auOut">6</output> /s</label><input id="auRate" type="range" min="1" max="15" step="1" value="6"></div>
+      <div class="field"><label for="trigThr">Trigger at <output id="trigOut">30</output> %</label><input id="trigThr" type="range" min="5" max="90" step="1" value="30"></div>
+    </div>
+    <div class="btnRow">
+      <button class="btn" id="btnBase">Calibrate baseline</button>
+      <button class="btn" id="btnRec">Record session</button>
+      <button class="btn" id="btnJson" disabled>Export JSON</button>
+      <button class="btn" id="btnCsv" disabled>Export CSV</button>
+      <button class="btn danger" id="btnReset">Reset</button>
+    </div>
+    <pre class="out" id="log">Start the engine:  python -m painface.server
+Then press Start and allow camera access.</pre>
+  </section>
+</main>
+
+<footer>
+  <b>Pain-Face</b> — facial action units via <b>Py-Feat</b> (Detectorv2: 20 AUs, 7 emotions, 68 landmarks, head pose, gaze, 52 blendshapes),
+  pulse and autonomic metrics via the 8-method <b>rPPG</b> bank, fused into a PSPI-anchored pain index.
+  <br>Research instrument only. <b>Not a medical device</b> — it estimates observable pain behaviour, not what a person feels, and must not be used for diagnosis, triage or treatment.
+</footer>
+
+<script>
+"use strict";
+/* ===================================================================== */
+/*  Pain-Face front end                                                  */
+/*                                                                       */
+/*  Two streams leave this page for the Python engine on one WebSocket:   */
+/*                                                                       */
+/*    • mean skin RGB for every video frame (~30 Hz) as JSON — the rPPG   */
+/*      bank needs every frame to resolve inter-beat intervals;           */
+/*    • a JPEG of the frame a few times a second as a binary message —    */
+/*      Py-Feat's action-unit network runs at ~17 fps at best, so it is   */
+/*      fed at its own cadence instead of throttling the colour trace.    */
+/*                                                                       */
+/*  Landmarks come back in the pixel coordinates of the frame we sent, so */
+/*  everything is normalised to [0,1] and mapped once, through `toDisp`,  */
+/*  which accounts for the object-fit:cover crop on the stage.            */
+/* ===================================================================== */
+const $ = id => document.getElementById(id);
+const clamp = (v, a = 0, b = 1) => v < a ? a : v > b ? b : v;
+const fmt = (v, d = 1) => (v === null || v === undefined || !isFinite(v)) ? "—" : (+v).toFixed(d);
+const pct = v => (v === null || v === undefined || !isFinite(v)) ? "—" : Math.round(v * 100);
+
+/* MediaPipe face-mesh indices for the rPPG regions: forehead and both
+   cheeks, chosen to avoid eyebrows, hair and the nasolabial shadow. */
+const ROI_IDX = {
+  forehead: [10,338,297,332,333,334,296,336,9,107,66,105,104,103,67,109,151,108,69,299,337],
+  lcheek:   [116,117,118,119,100,47,126,142,36,205,187,123,50,101,203],
+  rcheek:   [345,346,347,348,329,277,355,371,266,425,411,352,280,330,423],
+};
+const ROI_COL = { forehead:"#ff5c70", lcheek:"#4fc3cf", rcheek:"#e0a84a" };
+
+/* Pain-intensity bands. Thresholds follow the usual NRS reading of 0–10. */
+const BANDS = [
+  { max: 0.5,  name:"no pain",      v:"--calm" },
+  { max: 3.0,  name:"mild",         v:"--mild" },
+  { max: 6.0,  name:"moderate",     v:"--mod"  },
+  { max: 8.0,  name:"severe",       v:"--sev"  },
+  { max: 99,   name:"very severe",  v:"--crit" },
+];
+const bandFor = nrs => BANDS.find(b => nrs < b.max) || BANDS[BANDS.length - 1];
+
+const S = {
+  source: "camera", running: false, ws: null, wsOk: false,
+  t0: 0, frames: 0, frameTimes: [], auTimes: [],
+  rgbQueue: [], lastAuSent: 0, auInterval: 1000 / 6,
+  landmarker: null, lmLoading: false, lmFailed: false,
+  face: null, pain: null, vitals: null, baseline: null, detector: null,
+  auNames: {}, painAus: [], detectedAus: [], pspiMax: 16,
+  timeline: [], maxTl: 1200, episodes: [], recording: false, calibrating: false,
+  samplesRecorded: 0, lastBeatAt: 0, hrForBeat: 0,
+  videoDims: [0, 0],
+};
+
+/* ------------------------------------------------------------- theme --- */
+let COL = {};
+function readColors(){
+  const cs = getComputedStyle(document.documentElement);
+  const g = n => cs.getPropertyValue(n).trim();
+  COL = { ink:g("--ink"), ink2:g("--ink2"), muted:g("--muted"), faint:g("--faint"),
+          grid:g("--grid"), gridMajor:g("--grid-major"), line:g("--line"),
+          accent:g("--accent"), calm:g("--calm"), mild:g("--mild"), mod:g("--mod"),
+          sev:g("--sev"), crit:g("--crit"), pulse:g("--pulse"), resp:g("--resp"),
+          auto:g("--auto"), panel:g("--panel") };
+}
+function setTheme(t){
+  if (t) document.documentElement.setAttribute("data-theme", t);
+  else document.documentElement.removeAttribute("data-theme");
+  readColors(); drawAll();
+}
+$("btnTheme").onclick = () => {
+  const cur = document.documentElement.getAttribute("data-theme");
+  const next = cur === "light" ? "dark" : cur === "dark" ? null : "light";
+  setTheme(next);
+  try { next ? localStorage.setItem("pf-theme", next) : localStorage.removeItem("pf-theme"); } catch {}
+};
+try { const t = localStorage.getItem("pf-theme"); if (t) document.documentElement.setAttribute("data-theme", t); } catch {}
+readColors();
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => setTheme(document.documentElement.getAttribute("data-theme")));
+
+/* --------------------------------------------------------------- log --- */
+function log(msg){
+  const el = $("log");
+  const line = `${new Date().toLocaleTimeString()}  ${msg}`;
+  el.textContent = (el.textContent === el.dataset.seed ? "" : el.textContent + "\n") + line;
+  el.scrollTop = el.scrollHeight;
+}
+$("log").dataset.seed = $("log").textContent;
+function stageMsg(t){ const m = $("stageMsg"); if (!t) { m.hidden = true; return; } m.hidden = false; m.textContent = t; }
+function chip(id, state, text){
+  const c = $(id); c.className = "chip" + (state ? " " + state : "");
+  if (text !== undefined) c.querySelector("span").textContent = text;
+}
+
+/* ==================================================================== */
+/*  WebSocket                                                           */
+/* ==================================================================== */
+function wsUrl(){
+  const base = ($("engUrl").value || location.origin).replace(/\/+$/, "");
+  return base.replace(/^http/, "ws") + "/ws/live";
+}
+function connect(){
+  return new Promise(resolve => {
+    let ws;
+    try { ws = new WebSocket(wsUrl()); } catch (e) { log("bad engine URL: " + e.message); return resolve(false); }
+    const giveUp = setTimeout(() => { try { ws.close(); } catch {} resolve(false); }, 6000);
+    ws.onopen = () => {
+      clearTimeout(giveUp); S.ws = ws; S.wsOk = true;
+      chip("chipWs", "on", "engine live");
+      sendCfg();
+      resolve(true);
+    };
+    ws.onmessage = e => { try { onMessage(JSON.parse(e.data)); } catch {} };
+    ws.onclose = () => {
+      S.wsOk = false; S.ws = null;
+      chip("chipWs", "bad", "engine off"); chip("chipDet", "", "detector —");
+      clearTimeout(giveUp); resolve(false);
+    };
+    ws.onerror = () => { chip("chipWs", "bad", "engine error"); };
+  });
+}
+function send(o){ if (S.ws && S.ws.readyState === 1) S.ws.send(JSON.stringify(o)); }
+function sendCfg(){
+  send({ type:"config", window_s:+$("winSec").value, primary:$("selPrimary").value || "POS",
+         fs:30, landmarks:$("optMesh").checked, trigger_on:(+$("trigThr").value) / 100 });
+}
+
+function onMessage(m){
+  switch (m.type){
+    case "hello":
+      S.auNames = m.au_names || {}; S.painAus = m.pain_aus || []; S.pspiMax = m.pspi_max || 16;
+      S.detector = m.au; S.detectedAus = (m.au && m.au.aus) || [];
+      buildAuGrid(); buildMethodSelect(m.au);
+      chip("chipDet", m.au && m.au.ready ? "on" : "warn",
+           "detector " + (m.au && m.au.ready ? (m.au.device || "ready") : "warming"));
+      log(`engine ${m.version} · ${S.detectedAus.length} AUs · device ${m.au && m.au.device}`);
+      break;
+    case "au":       onAu(m); break;
+    case "vitals":   onVitals(m); break;
+    case "baseline": S.baseline = m.baseline; S.calibrating = m.calibrating; renderBaseline(); break;
+    case "session":
+      S.recording = m.recording; S.lastSummary = m.summary;
+      S.episodes = (m.summary && m.summary.episodes) || [];
+      renderEpisodes(); renderSession(); break;
+    case "config":   break;
+  }
+}
+
+function onAu(m){
+  S.auTimes.push(performance.now());
+  while (S.auTimes.length > 24) S.auTimes.shift();
+  if (S.auTimes.length > 3){
+    const span = (S.auTimes.at(-1) - S.auTimes[0]) / 1000;
+    chip("chipAu", "on", (span > 0 ? ((S.auTimes.length - 1) / span).toFixed(1) : "—") + " au/s");
+  }
+  if (S.detector && !S.detector.ready) { S.detector.ready = true; chip("chipDet", "on", "detector " + (S.detector.device || "ready")); }
+
+  const f = m.face || {};
+  if (!f.ok){
+    S.face = null; chip("chipFace", "warn", "no face");
+    $("painAux").textContent = f.reason || "no face";
+    renderNoFace(); return;
+  }
+  S.face = f; S.pain = m.pain || null;
+  chip("chipFace", "on", "face " + Math.round((f.quality || 0) * 100) + "%");
+  if (typeof m.recorded === "number") { S.samplesRecorded = m.recorded; renderSession(); }
+
+  if (S.pain){
+    S.timeline.push({ t:m.t, nrs:S.pain.nrs, raw:(S.pain.facial.pspi / S.pspiMax),
+                      corr:S.pain.facial.corrected, auto:S.pain.autonomic.score,
+                      trig:!!S.pain.triggered });
+    while (S.timeline.length > S.maxTl) S.timeline.shift();
+    if (S.pain.trigger) {
+      $("epAux").textContent = S.pain.trigger.episodes || 0;
+    }
+  }
+  renderPain(); renderAus(); renderEmotions(); drawPain();
+}
+
+function onVitals(m){
+  S.vitals = m.vitals; S.baseline = m.baseline;
+  renderVitals(); renderBaseline(); drawBvp(); drawSpec(); renderMethods();
+}
+
+/* ==================================================================== */
+/*  Capture                                                             */
+/* ==================================================================== */
+const video = $("video"), overlay = $("overlay"), stage = $("stage");
+const work = document.createElement("canvas");      // full-res colour sampling
+const sendC = document.createElement("canvas");     // downscaled JPEG for Py-Feat
+const SEND_W = 480;                                 // matches the detector's own width
+
+/* Map a normalised face-mesh point to displayed stage pixels, undoing the
+   object-fit:cover crop so overlays sit on the face rather than beside it. */
+function toDisp(nx, ny, W, H){
+  const [vw, vh] = S.videoDims;
+  if (!vw || !vh) return [nx * W, ny * H];
+  const s = Math.max(W / vw, H / vh);
+  const dw = vw * s, dh = vh * s;
+  return [nx * dw - (dw - W) / 2, ny * dh - (dh - H) / 2];
+}
+
+async function loadMesh(){
+  if (S.landmarker || S.lmLoading || S.lmFailed) return S.landmarker;
+  S.lmLoading = true;
+  const V = "0.10.14", base = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${V}`;
+  try {
+    const vision = await import(`${base}/vision_bundle.mjs`);
+    const files = await vision.FilesetResolver.forVisionTasks(`${base}/wasm`);
+    const opts = d => ({
+      baseOptions:{ modelAssetPath:"https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task", delegate:d },
+      runningMode:"VIDEO", numFaces:1 });
+    try { S.landmarker = await vision.FaceLandmarker.createFromOptions(files, opts("GPU")); }
+    catch { S.landmarker = await vision.FaceLandmarker.createFromOptions(files, opts("CPU")); }
+    log("face mesh ready — rPPG regions tracking");
+  } catch (e){
+    S.lmFailed = true;
+    log("face mesh unavailable (" + e.message + ") — colour sampled from the detector's face box");
+  }
+  S.lmLoading = false;
+  return S.landmarker;
+}
+
+/* Mean RGB inside a polygon, optionally keeping only skin-like pixels.
+   The YCrCb gate is the usual Chai & Ngan range and drops hair, lips and
+   background that would otherwise dilute the pulse. */
+function roiMean(img, W, poly, skinOnly){
+  let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+  for (const [x, y] of poly){ if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  x0 = Math.max(0 | x0, 0); y0 = Math.max(0 | y0, 0);
+  x1 = Math.min(Math.ceil(x1), W - 1); y1 = Math.min(Math.ceil(y1), (img.length / 4 / W) - 1);
+  if (x1 <= x0 || y1 <= y0) return null;
+  let r = 0, g = 0, b = 0, n = 0;
+  for (let y = y0; y <= y1; y += 2){
+    for (let x = x0; x <= x1; x += 2){
+      if (!inPoly(x, y, poly)) continue;
+      const i = (y * W + x) * 4;
+      const R = img[i], G = img[i + 1], B = img[i + 2];
+      if (skinOnly){
+        const cr = 128 + (0.5 * R - 0.4187 * G - 0.0813 * B);
+        const cb = 128 + (-0.1687 * R - 0.3313 * G + 0.5 * B);
+        if (cr < 133 || cr > 173 || cb < 77 || cb > 127) continue;
+      }
+      r += R; g += G; b += B; n++;
+    }
+  }
+  return n < 12 ? null : { rgb:[r / n, g / n, b / n], n };
+}
+function inPoly(x, y, p){
+  let inside = false;
+  for (let i = 0, j = p.length - 1; i < p.length; j = i++){
+    const [xi, yi] = p[i], [xj, yj] = p[j];
+    if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+function hull(pts){
+  const P = pts.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const cross = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const half = src => { const h = []; for (const p of src){ while (h.length >= 2 && cross(h.at(-2), h.at(-1), p) <= 0) h.pop(); h.push(p); } return h; };
+  return half(P).slice(0, -1).concat(half(P.reverse()).slice(0, -1));
+}
+
+/* ------------------------------------------------------------ frames --- */
+function captureFrame(t){
+  const vw = video.videoWidth, vh = video.videoHeight;
+  if (!vw || !vh) return;
+  S.videoDims = [vw, vh];
+  if (work.width !== vw){ work.width = vw; work.height = vh; }
+  const wc = work.getContext("2d", { willReadFrequently:true });
+  wc.drawImage(video, 0, 0, vw, vh);
+
+  /* colour trace — every frame */
+  let polys = null;
+  if (S.landmarker){
+    let res = null;
+    try { res = S.landmarker.detectForVideo(video, performance.now()); } catch {}
+    const lms = res && res.faceLandmarks && res.faceLandmarks[0];
+    if (lms) polys = Object.fromEntries(Object.entries(ROI_IDX).map(([k, ids]) =>
+      [k, hull(ids.map(i => [lms[i].x * vw, lms[i].y * vh]))]));
+  }
+  if (!polys && S.face && S.face.box){
+    /* fall back to boxes derived from Py-Feat's face rectangle */
+    const [bx, by, bw, bh] = S.face.box, sx = vw / SEND_W, s = sx;
+    const R = (x, y, w, h) => [[x, y], [x + w, y], [x + w, y + h], [x, y + h]];
+    polys = { forehead: R((bx + 0.30 * bw) * s, (by + 0.10 * bh) * s, 0.40 * bw * s, 0.14 * bh * s),
+              lcheek:   R((bx + 0.14 * bw) * s, (by + 0.52 * bh) * s, 0.20 * bw * s, 0.17 * bh * s),
+              rcheek:   R((bx + 0.66 * bw) * s, (by + 0.52 * bh) * s, 0.20 * bw * s, 0.17 * bh * s) };
+  }
+
+  if (polys){
+    const img = wc.getImageData(0, 0, vw, vh).data;
+    let acc = [0, 0, 0], N = 0;
+    for (const P of Object.values(polys)){
+      const m = roiMean(img, vw, P, $("optSkin").checked);
+      if (m){ acc = acc.map((v, i) => v + m.rgb[i] * m.n); N += m.n; }
+    }
+    if (N){ S.rgbQueue.push({ t, rgb:acc.map(v => v / N) }); $("roiAux").textContent = `ROI ${Math.round(N / 1000)}k px`; }
+  }
+
+  /* action-unit frame — rate limited */
+  const now = performance.now();
+  if (S.wsOk && now - S.lastAuSent >= S.auInterval){
+    S.lastAuSent = now;
+    const ar = vh / vw, sw = SEND_W, sh = Math.round(SEND_W * ar);
+    if (sendC.width !== sw){ sendC.width = sw; sendC.height = sh; }
+    sendC.getContext("2d").drawImage(video, 0, 0, sw, sh);
+    sendC.toBlob(b => { if (b && S.ws && S.ws.readyState === 1) b.arrayBuffer().then(a => {
+      if (S.ws && S.ws.readyState === 1) S.ws.send(a); }); }, "image/jpeg", 0.8);
+  }
+
+  drawOverlay(polys, vw, vh);
+}
+
+/* flush the colour trace once a second — one JSON message, not 30 */
+setInterval(() => {
+  if (!S.wsOk || !S.rgbQueue.length) return;
+  const q = S.rgbQueue; S.rgbQueue = [];
+  send({ type:"rgb", t:q.map(s => s.t), rgb:q.map(s => s.rgb) });
+}, 1000);
+
+/* ------------------------------------------------------------ overlay -- */
+function fitOverlay(){
+  const r = overlay.getBoundingClientRect(), d = devicePixelRatio || 1;
+  if (overlay.width !== Math.round(r.width * d)){ overlay.width = r.width * d; overlay.height = r.height * d; }
+  const c = overlay.getContext("2d");
+  c.setTransform(d, 0, 0, d, 0, 0);
+  return { c, W:r.width, H:r.height };
+}
+function drawOverlay(polys, vw, vh){
+  const { c, W, H } = fitOverlay();
+  c.clearRect(0, 0, W, H);
+
+  if ($("optRoi").checked && polys){
+    for (const [k, P] of Object.entries(polys)){
+      c.beginPath();
+      P.forEach(([x, y], i) => { const [px, py] = toDisp(x / vw, y / vh, W, H); i ? c.lineTo(px, py) : c.moveTo(px, py); });
+      c.closePath();
+      c.fillStyle = ROI_COL[k] + "2e"; c.fill();
+      c.strokeStyle = ROI_COL[k]; c.lineWidth = 1.4; c.stroke();
+    }
+  }
+
+  const f = S.face;
+  if (!f) return;
+  const sx = 1 / SEND_W, sy = sx * (vw / vh);   /* sent frame was SEND_W wide */
+
+  if ($("optMesh").checked && f.landmarks){
+    const pain = S.pain && S.pain.facial;
+    c.fillStyle = pain && pain.corrected > 0.3 ? COL.sev : COL.face;
+    for (const [x, y] of f.landmarks){
+      const [px, py] = toDisp(x * sx, y * sy, W, H);
+      c.fillRect(px - 0.9, py - 0.9, 1.8, 1.8);
+    }
+  }
+  if ($("optBox").checked && f.box){
+    const [bx, by, bw, bh] = f.box;
+    const [x0, y0] = toDisp(bx * sx, by * sy, W, H);
+    const [x1, y1] = toDisp((bx + bw) * sx, (by + bh) * sy, W, H);
+    const band = S.pain ? bandFor(S.pain.nrs) : BANDS[0];
+    c.strokeStyle = COL[band.v.replace("--", "")] || COL.accent;
+    c.lineWidth = 2; c.setLineDash([7, 5]);
+    c.strokeRect(Math.min(x0, x1), Math.min(y0, y1), Math.abs(x1 - x0), Math.abs(y1 - y0));
+    c.setLineDash([]);
+  }
+}
+
+/* ---------------------------------------------------------- simulator -- */
+/* A scripted subject: calm, then a pain episode with the canonical AU
+   pattern and a matching autonomic response, then calm again. It exists so
+   the whole pipeline — trigger, episodes, export — can be exercised and
+   demonstrated without a camera or a person in discomfort. */
+const SIM = { phase:0, last:0 };
+function simPainAt(t){
+  const c = t % 60;
+  if (c < 20) return 0;
+  if (c < 32) return Math.sin(Math.PI * (c - 20) / 12);      // rising then easing
+  if (c < 42) return 0;
+  if (c < 50) return 0.55 * Math.sin(Math.PI * (c - 42) / 8);
+  return 0;
+}
+function simFrame(t){
+  const dt = Math.min(t - SIM.last, 0.1); SIM.last = t;
+  const p = simPainAt(t);
+  const resp = Math.sin(2 * Math.PI * (14 + 6 * p) / 60 * t);
+  const hr = (70 + 26 * p) * (1 + 0.04 * resp);
+  SIM.phase += 2 * Math.PI * hr / 60 * dt;
+  const pulse = Math.sin(SIM.phase) + 0.35 * Math.sin(2 * SIM.phase - 0.8);
+  const dir = [0.33, 0.77, 0.53], base = [182, 124, 98];
+  const illum = 1 + 0.004 * resp;
+  const amp = 0.0045 * (1 - 0.35 * p);                        // vasoconstriction
+  const rgb = base.map((b, i) => b * illum * (1 + amp * dir[i] * pulse) + b * 0.002 * (Math.random() - 0.5));
+  S.rgbQueue.push({ t, rgb });
+
+  /* synthesise the pain AU pattern and post it through the same renderers */
+  const n = (x) => clamp(x + 0.02 * (Math.random() - 0.5));
+  const aus = { AU04:n(0.9 * p), AU06:n(0.35 * p), AU07:n(0.85 * p), AU09:n(0.7 * p),
+                AU10:n(0.6 * p), AU43:n(0.5 * p), AU25:n(0.4 * p), AU12:n(0.02),
+                AU01:n(0.05), AU02:n(0.04), AU05:n(0.05), AU11:n(0.1), AU14:n(0.05),
+                AU15:n(0.2 * p), AU17:n(0.15 * p), AU20:n(0.1 * p), AU23:n(0.2 * p),
+                AU24:n(0.15 * p), AU26:n(0.2 * p), AU28:n(0.03) };
+  const emotions = { Neutral:1 - p, Sad:0.5 * p, Anger:0.2 * p, Disgust:0.2 * p,
+                     Fear:0.1 * p, Happy:0.01, Surprise:0.02 };
+  /* The engine does the fusion, trigger and recording for simulated AUs too,
+     so what you see here is the production path, not a stand-in. */
+  const now = performance.now();
+  if (S.wsOk && now - S.lastAuSent >= S.auInterval){
+    S.lastAuSent = now;
+    send({ type:"aus", t, aus, emotions, quality:0.97 });
+  }
+  chip("chipFace", "on", "simulated");
+  drawSimStage(pulse, p);
+}
+function drawSimStage(pulse, p){
+  const { c, W, H } = fitOverlay();
+  c.clearRect(0, 0, W, H);
+  const g = c.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, "#0d141f"); g.addColorStop(1, "#070a10");
+  c.fillStyle = g; c.fillRect(0, 0, W, H);
+  const cx = W / 2, cy = H / 2, R = Math.min(W, H) * 0.3;
+  const band = bandFor(p * 10), col = COL[band.v.replace("--", "")] || COL.calm;
+  c.strokeStyle = col + "66"; c.lineWidth = 2;
+  c.beginPath(); c.ellipse(cx, cy, R * 0.78, R, 0, 0, 7); c.stroke();
+  c.fillStyle = col + "1a"; c.fill();
+  /* brow + mouth that deform with the scripted pain level */
+  c.strokeStyle = col; c.lineWidth = 3; c.lineCap = "round";
+  for (const s of [-1, 1]){
+    c.beginPath();
+    c.moveTo(cx + s * R * 0.42, cy - R * 0.34 + p * R * 0.12);
+    c.lineTo(cx + s * R * 0.12, cy - R * 0.42 - p * R * 0.05);
+    c.stroke();
+  }
+  c.beginPath();
+  c.moveTo(cx - R * 0.3, cy + R * 0.42);
+  c.quadraticCurveTo(cx, cy + R * (0.42 - 0.18 * p), cx + R * 0.3, cy + R * 0.42);
+  c.stroke();
+  /* pulse trace along the bottom */
+  c.strokeStyle = COL.pulse; c.lineWidth = 1.6; c.beginPath();
+  for (let i = 0; i < 90; i++){
+    const x = (i / 89) * W, y = H - 16 - Math.sin(SIM.phase - (89 - i) * 0.22) * 9;
+    i ? c.lineTo(x, y) : c.moveTo(x, y);
+  }
+  c.stroke();
+}
+
+/* ==================================================================== */
+/*  Renderers                                                           */
+/* ==================================================================== */
+const PSPI_COLS = { brow_lowering:"#e0566f", orbital_tightening:"#f0943c",
+                    levator_contraction:"#d9bf5a", eye_closure:"#7c9cf0" };
+const PSPI_LABEL = { brow_lowering:"AU4 brow lowerer", orbital_tightening:"AU6/7 orbital",
+                     levator_contraction:"AU9/10 levator", eye_closure:"AU43 eye closure" };
+
+function setAccent(nrs){
+  const band = bandFor(nrs);
+  const col = getComputedStyle(document.documentElement).getPropertyValue(band.v).trim();
+  document.documentElement.style.setProperty("--accent", col);
+  document.documentElement.style.setProperty("--accent-soft", col + "2e");
+  readColors();
+  return band;
+}
+
+const GAUGE_LEN = 257.6;            /* arc length of the 164-radius sweep */
+function renderPain(){
+  const p = S.pain;
+  if (!p) return;
+  const band = setAccent(p.nrs);
+
+  $("nrsNum").innerHTML = `${p.nrs.toFixed(1)}<small>/10</small>`;
+  $("painLabel").textContent = p.label || band.name;
+  $("gFill").style.strokeDasharray = GAUGE_LEN;
+  $("gFill").style.strokeDashoffset = GAUGE_LEN * (1 - clamp(p.nrs / 10));
+  /* a round cap paints a dot even at zero length, so hide the arc outright */
+  $("gFill").style.opacity = p.nrs < 0.05 ? 0 : 1;
+
+  $("hFacial").innerHTML = `${pct(p.facial.corrected)}<small>%</small>`;
+  $("hAuto").innerHTML = p.autonomic.ready ? `${pct(p.autonomic.score)}<small>%</small>` : `—<small>%</small>`;
+  $("hConf").innerHTML = `${pct(p.confidence)}<small>%</small>`;
+
+  const armed = !!p.triggered;
+  $("hero").classList.toggle("armed", armed);
+  $("heroState").classList.toggle("armed", armed);
+  const tr = p.trigger || {};
+  $("heroStateTxt").textContent = armed
+    ? `Pain episode ${tr.episodes || 1} — held ${fmt(tr.held_s, 1)} s`
+    : `Trigger idle — fires above ${pct(tr.on_threshold ?? 0.3)}% facial pain`;
+  $("painAux").textContent = `${p.autonomic.ready ? "fused" : "facial only"} · conf ${pct(p.confidence)}%`;
+  $("heroNote").textContent = p.autonomic.ready
+    ? "Autonomic signs are modulating the facial score; facial evidence remains required."
+    : "Calibrate a baseline to let heart rate and HRV modulate the score.";
+
+  /* PSPI */
+  $("pspiNum").textContent = fmt(p.facial.pspi, 2);
+  $("corrNum").textContent = pct(p.facial.corrected);
+  $("pspiTag").textContent = p.facial.smile > 0.4 ? "smile discounted" : "raw";
+  const bar = $("pspiBar");
+  if (bar.childElementCount !== 4) bar.innerHTML = Object.keys(PSPI_COLS).map(k => `<i data-k="${k}"></i>`).join("");
+  const legend = $("pspiLegend");
+  if (legend.childElementCount !== 4) legend.innerHTML = Object.keys(PSPI_COLS).map(k =>
+    `<div><i style="background:${PSPI_COLS[k]}"></i>${PSPI_LABEL[k]}<b data-k="${k}">—</b></div>`).join("");
+  for (const k of Object.keys(PSPI_COLS)){
+    const v = p.facial.terms[k] || 0;
+    bar.querySelector(`i[data-k="${k}"]`).style.cssText =
+      `width:${(v / S.pspiMax) * 100}%;background:${PSPI_COLS[k]}`;
+    legend.querySelector(`b[data-k="${k}"]`).textContent = v.toFixed(2);
+  }
+  meter("mSmile", "oSmile", p.facial.smile, 1, v => pct(v) + "%");
+  meter("mMouth", "oMouth", p.facial.mouth, 1, v => pct(v) + "%");
+}
+function renderNoFace(){
+  $("nrsNum").innerHTML = `--<small>/10</small>`;
+  $("painLabel").textContent = "no face";
+  $("gFill").style.strokeDashoffset = GAUGE_LEN;
+  $("gFill").style.opacity = 0;
+  $("hero").classList.remove("armed"); $("heroState").classList.remove("armed");
+  $("heroStateTxt").textContent = "No face in frame — move into view and hold still";
+  setAccent(0);
+}
+function meter(mId, oId, v, max, f){
+  const el = $(mId); if (!el) return;
+  el.style.width = (v === null || !isFinite(v) ? 0 : clamp(v / max) * 100) + "%";
+  if (oId) $(oId).textContent = f ? f(v) : fmt(v, 2);
+}
+
+/* --------------------------------------------------------- AU matrix --- */
+function buildAuGrid(){
+  const g = $("auGrid");
+  const order = S.detectedAus.length ? S.detectedAus : Object.keys(S.auNames);
+  g.innerHTML = order.map(code => {
+    const isPain = S.painAus.includes(code);
+    return `<div class="aurow${isPain ? " isPain" : ""}" id="row-${code}" title="${S.auNames[code] || code}">
+      <span class="code">${code.replace("AU", "AU ")}</span>
+      <div class="track thin"><div class="fill" id="f-${code}"></div></div>
+      <output id="o-${code}">—</output></div>`;
+  }).join("");
+  $("auAux").textContent = `${order.length} · ${S.painAus.length} pain-relevant`;
+}
+function renderAus(){
+  const aus = (S.face && S.face.aus) || {};
+  for (const [code, v] of Object.entries(aus)){
+    const f = $("f-" + code), o = $("o-" + code), row = $("row-" + code);
+    if (!f) continue;
+    f.style.width = clamp(v) * 100 + "%";
+    const pain = S.painAus.includes(code);
+    f.style.background = v >= 0.5 && pain ? COL.sev : v >= 0.5 ? COL.ink2 : COL.muted;
+    o.textContent = v.toFixed(2);
+    if (row) row.classList.toggle("live", v >= 0.5 && pain);
+  }
+}
+function renderEmotions(){
+  const e = (S.face && S.face.emotions) || {};
+  const keys = Object.keys(e);
+  const row = $("emoRow");
+  if (!keys.length){ row.innerHTML = ""; return; }
+  const top = keys.reduce((a, b) => e[a] >= e[b] ? a : b);
+  row.innerHTML = keys.map(k =>
+    `<div class="emo${k === top ? " top" : ""}"><div class="k">${k.slice(0, 5)}</div><div class="v">${pct(e[k])}</div></div>`).join("");
+}
+
+/* ----------------------------------------------------------- vitals --- */
+const TILES = [
+  { k:"HRV · RMSSD", id:"rmssd_ms", d:1, u:"ms", n:"needs ≥ 30 s", gate:true },
+  { k:"HRV · SDNN",  id:"sdnn_ms",  d:1, u:"ms", n:"Task Force 1996", gate:true },
+  { k:"LF/HF",       id:"lf_hf",    d:2, u:"",   n:"sympathetic shift", gate:true },
+  { k:"Stress index",id:"stress_index", d:1, u:"", n:"Baevsky" , gate:true },
+  { k:"Beats",       id:"n_beats",  d:0, u:"",   n:"in window" },
+];
+function renderVitals(){
+  const v = S.vitals; if (!v) return;
+  $("vitAux").textContent = v.effective_fs
+    ? `buffer ${fmt(v.buffer_s, 0)} s · ${fmt(v.effective_fs, 0)} Hz · ${v.analyses || 0} runs`
+    : `buffer ${fmt(v.buffer_s, 0)} s`;
+  $("hrNum").textContent = v.fused_hr ? fmt(v.fused_hr, 0) : "--";
+  if (v.fused_hr) S.hrForBeat = v.fused_hr;
+
+  /* Say plainly when frames are arriving too slowly to measure a pulse, rather
+     than printing a heart rate the sampling rate cannot support. */
+  if (v.sampling_ok === false){
+    stageMsg(v.error || `Frames are arriving at ${fmt(v.effective_fs, 1)} Hz. A pulse needs at least ${fmt(v.min_fs, 1)} Hz, so heart rate and HRV are withheld.`);
+  } else if (v.error){
+    log("vitals: " + v.error);
+  }
+
+  const hrv = v.hrv || {}, resp = v.respiration || {};
+  const cells = [
+    `<div class="tile"><div class="k">Respiration</div><div class="v">${fmt(resp.fused, 1)}<small>br/min</small></div><div class="n">RIIV·RIAV·RSA</div></div>`,
+    `<div class="tile"><div class="k">Perfusion</div><div class="v">${fmt(v.perfusion_index_pct, 2)}<small>%</small></div><div class="n">green AC/DC</div></div>`,
+    ...TILES.map(t => {
+      const dim = t.gate && !v.hrv_ready;
+      return `<div class="tile${dim ? " dim" : ""}"><div class="k">${t.k}</div>
+        <div class="v">${dim ? "—" : fmt(hrv[t.id], t.d)}${t.u ? `<small>${t.u}</small>` : ""}</div>
+        <div class="n">${dim ? "needs ≥ 30 s" : t.n}</div></div>`;
+    }),
+    `<div class="tile"><div class="k">SpO₂ ratio</div><div class="v">${fmt(v.spo2_ratio, 2)}</div><div class="n">uncalibrated</div></div>`,
+  ];
+  $("vitTiles").innerHTML = cells.join("");
+}
+function renderBaseline(){
+  const b = S.baseline;
+  const el = $("baseState");
+  if (S.calibrating){ el.textContent = "calibrating…"; el.style.color = COL.mild; }
+  else if (b && b.ready){ el.textContent = "set"; el.style.color = COL.calm; }
+  else { el.textContent = "not set"; el.style.color = COL.muted; }
+  $("btnBase").textContent = S.calibrating ? "Stop calibration" : "Calibrate baseline";
+}
+function renderMethods(){
+  const m = (S.vitals && S.vitals.methods) || {};
+  const names = Object.keys(m);
+  const tb = $("tbMethods");
+  if (!names.length){ tb.innerHTML = `<tr><td colspan="3" class="empty">Waiting for signal.</td></tr>`; return; }
+  tb.innerHTML = names.map(n => {
+    const r = m[n];
+    if (r.error) return `<tr><td>${n}</td><td colspan="2" style="color:var(--faint)">—</td></tr>`;
+    return `<tr><td>${n}</td><td>${fmt(r.hr, 1)}</td><td>${fmt(r.snr, 1)}</td></tr>`;
+  }).join("");
+}
+function renderEpisodes(){
+  const tb = $("tbEp");
+  if (!S.episodes.length){ tb.innerHTML = `<tr><td colspan="6" class="empty">No pain episode recorded yet.</td></tr>`; return; }
+  tb.innerHTML = S.episodes.slice().reverse().map(e => `<tr>
+    <td>${e.index}</td><td>${fmt(e.start_t, 1)}s</td><td>${e.duration_s === null ? "live" : fmt(e.duration_s, 1) + "s"}</td>
+    <td>${fmt(e.peak_nrs, 1)}</td><td>${fmt(e.mean_nrs, 1)}</td>
+    <td style="font:600 10px var(--mono);color:var(--mod)">${(e.peak_aus || []).join(" ") || "—"}</td></tr>`).join("");
+  $("epAux").textContent = S.episodes.length;
+}
+function renderSession(){
+  $("sessAux").textContent = `${S.samplesRecorded} samples`;
+  $("btnRec").textContent = S.recording ? "Stop recording" : "Record session";
+  $("btnRec").classList.toggle("rec", S.recording);
+  const has = S.samplesRecorded > 0;
+  $("btnJson").disabled = !has; $("btnCsv").disabled = !has;
+}
+
+/* ==================================================================== */
+/*  Charts                                                              */
+/* ==================================================================== */
+function prep(id){
+  const cv = $(id), r = cv.getBoundingClientRect(), d = devicePixelRatio || 1;
+  if (cv.width !== Math.round(r.width * d)){ cv.width = r.width * d; cv.height = r.height * d; }
+  const c = cv.getContext("2d");
+  c.setTransform(d, 0, 0, d, 0, 0);
+  c.clearRect(0, 0, r.width, r.height);
+  return { c, W:r.width, H:r.height };
+}
+function grid(c, W, H, rows = 4){
+  c.strokeStyle = COL.grid; c.lineWidth = 1;
+  for (let i = 0; i <= rows; i++){
+    const y = (i / rows) * (H - 1) + 0.5;
+    c.beginPath(); c.moveTo(0, y); c.lineTo(W, y); c.stroke();
+  }
+}
+function poly(c, pts, col, w = 1.8, fill){
+  if (pts.length < 2) return;
+  c.beginPath(); pts.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y));
+  if (fill){ c.save(); c.lineTo(pts.at(-1)[0], fill); c.lineTo(pts[0][0], fill); c.closePath();
+             c.fillStyle = col + "22"; c.fill(); c.restore(); }
+  c.strokeStyle = col; c.lineWidth = w; c.lineJoin = "round"; c.stroke();
+}
+function drawPain(){
+  const { c, W, H } = prep("cPain");
+  const tl = S.timeline;
+  grid(c, W, H, 5);
+  if (tl.length < 2){ c.fillStyle = COL.faint; c.font = "12px " + getComputedStyle(document.body).fontFamily;
+    c.fillText("waiting for action units…", 10, H / 2); return; }
+  const t0 = tl[0].t, t1 = Math.max(tl.at(-1).t, t0 + 10);
+  const X = t => ((t - t0) / (t1 - t0)) * W;
+  const Y = v => H - 2 - clamp(v) * (H - 8);
+
+  /* episode shading */
+  c.fillStyle = COL.crit + "1f";
+  let runStart = null;
+  tl.forEach((p, i) => {
+    if (p.trig && runStart === null) runStart = p.t;
+    if ((!p.trig || i === tl.length - 1) && runStart !== null){
+      c.fillRect(X(runStart), 0, Math.max(X(p.t) - X(runStart), 1.5), H); runStart = null;
+    }
+  });
+  poly(c, tl.map(p => [X(p.t), Y(p.raw)]), COL.faint, 1.2);
+  poly(c, tl.map(p => [X(p.t), Y(p.auto)]), COL.auto, 1.2);
+  poly(c, tl.map(p => [X(p.t), Y(p.corr)]), COL.mod, 1.6);
+  poly(c, tl.map(p => [X(p.t), Y(p.nrs / 10)]), COL.accent, 2.2, H);
+
+  /* trigger threshold */
+  const thr = (+$("trigThr").value) / 100;
+  c.setLineDash([4, 4]); c.strokeStyle = COL.crit + "99"; c.lineWidth = 1;
+  c.beginPath(); c.moveTo(0, Y(thr)); c.lineTo(W, Y(thr)); c.stroke(); c.setLineDash([]);
+  $("tlAux").textContent = `${fmt(t1 - t0, 0)} s · ${tl.length} readings`;
+}
+function drawBvp(){
+  const { c, W, H } = prep("cBvp");
+  const s = S.vitals && S.vitals.series, b = s && s.bvp;
+  grid(c, W, H, 2);
+  if (!b || b.length < 4){ c.fillStyle = COL.faint; c.font = "12px sans-serif"; c.fillText("no pulse yet", 10, H / 2); return; }
+  const lo = Math.min(...b), hi = Math.max(...b), rng = (hi - lo) || 1;
+  poly(c, b.map((v, i) => [(i / (b.length - 1)) * W, H - 3 - ((v - lo) / rng) * (H - 6)]), COL.pulse, 1.7);
+  $("bvpAux").textContent = `${S.vitals.primary || ""} · ${fmt(S.vitals.window_s, 0)} s`;
+}
+function drawSpec(){
+  const { c, W, H } = prep("cSpec");
+  const s = S.vitals && S.vitals.series;
+  grid(c, W, H, 2);
+  if (!s || !s.welch_f || !s.welch_f.length){ return; }
+  const f = s.welch_f, p = s.welch_p, mx = Math.max(...p) || 1;
+  const pts = f.map((fv, i) => [((fv - f[0]) / ((f.at(-1) - f[0]) || 1)) * W, H - 2 - (p[i] / mx) * (H - 6)]);
+  poly(c, pts, COL.resp, 1.6, H);
+  const hr = S.vitals.fused_hr;
+  if (hr){
+    const x = ((hr / 60 - f[0]) / ((f.at(-1) - f[0]) || 1)) * W;
+    c.strokeStyle = COL.accent; c.lineWidth = 1.4; c.setLineDash([3, 3]);
+    c.beginPath(); c.moveTo(x, 0); c.lineTo(x, H); c.stroke(); c.setLineDash([]);
+  }
+}
+function drawAll(){ drawPain(); drawBvp(); drawSpec(); if (S.face || S.running) drawOverlay(null, S.videoDims[0] || 1, S.videoDims[1] || 1); }
+addEventListener("resize", drawAll);
+
+/* heartbeat animation, paced by the current fused HR */
+setInterval(() => {
+  if (!S.hrForBeat || !S.running) return;
+  const period = 60000 / S.hrForBeat;
+  if (performance.now() - S.lastBeatAt < period) return;
+  S.lastBeatAt = performance.now();
+  const h = $("heart"); h.classList.remove("beat"); void h.offsetWidth; h.classList.add("beat");
+}, 60);
+
+/* ==================================================================== */
+/*  Controls                                                            */
+/* ==================================================================== */
+function buildMethodSelect(au){
+  const sel = $("selPrimary");
+  if (sel.options.length) return;
+  for (const m of ["POS", "CHROM", "GREEN", "ICA", "PCA", "PBV", "LGI", "OMIT"]){
+    const o = document.createElement("option"); o.value = o.textContent = m;
+    if (m === "POS") o.selected = true;
+    sel.append(o);
+  }
+}
+buildMethodSelect();
+
+for (const b of document.querySelectorAll(".seg button")){
+  b.onclick = () => {
+    if (S.running) stop();
+    S.source = b.dataset.src;
+    document.querySelectorAll(".seg button").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+    stage.classList.toggle("nomirror", S.source === "sim");
+    $("stageTag").textContent = S.source === "sim" ? "scripted subject" : "idle";
+    stageMsg(S.source === "sim"
+      ? "The simulator scripts a pain episode with the canonical AU pattern and a matching autonomic response — the engine scores it through the same pipeline as a live face."
+      : "");
+  };
+}
+
+$("winSec").oninput = e => { $("winOut").textContent = e.target.value; sendCfg(); };
+$("auRate").oninput = e => { $("auOut").textContent = e.target.value; S.auInterval = 1000 / +e.target.value; };
+$("trigThr").oninput = e => { $("trigOut").textContent = e.target.value; sendCfg(); drawPain(); };
+$("selPrimary").onchange = sendCfg;
+$("optMesh").onchange = sendCfg;
+
+$("btnBase").onclick = () => {
+  if (!S.wsOk) return log("connect the engine first");
+  send({ type:"baseline", action:S.calibrating ? "stop" : "start" });
+  log(S.calibrating ? "baseline calibration stopped"
+                    : "calibrating baseline — stay calm and still for ~30 s");
+};
+$("btnRec").onclick = () => {
+  if (!S.wsOk) return log("connect the engine first");
+  send({ type:"session", action:S.recording ? "stop" : "start",
+         label:new Date().toISOString().slice(0, 19) });
+  log(S.recording ? "recording stopped" : "recording started");
+};
+$("btnReset").onclick = () => {
+  send({ type:"session", action:"reset" }); send({ type:"baseline", action:"reset" });
+  S.timeline = []; S.episodes = []; S.samplesRecorded = 0;
+  renderEpisodes(); renderSession(); drawPain();
+  log("session and baseline reset");
+};
+
+/* Exports are built from the engine's own session record, not the page's
+   timeline, so what you download is the full-rate data it scored. */
+async function grab(kind){
+  const base = ($("engUrl").value || location.origin).replace(/\/+$/, "");
+  try {
+    const r = await fetch(`${base}/api/session.${kind}`);
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const blob = await r.blob();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `painface-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.${kind}`;
+    a.click(); URL.revokeObjectURL(a.href);
+    log(`exported ${kind.toUpperCase()}`);
+  } catch (e){ log("export failed: " + e.message); }
+}
+$("btnJson").onclick = () => grab("json");
+$("btnCsv").onclick = () => grab("csv");
+
+/* ==================================================================== */
+/*  Run loop                                                            */
+/* ==================================================================== */
+let raf = 0, simTimer = 0, vfc = 0;
+
+function tick(){
+  if (!S.running) return;
+  const t = (performance.now() - S.t0) / 1000;
+  if (S.source === "sim") simFrame(t);
+  else if (video.readyState >= 2) captureFrame(t);
+  S.frameTimes.push(performance.now());
+  while (S.frameTimes.length > 40) S.frameTimes.shift();
+  if (S.frameTimes.length > 5){
+    const span = (S.frameTimes.at(-1) - S.frameTimes[0]) / 1000;
+    const fps = span > 0 ? (S.frameTimes.length - 1) / span : 0;
+    const starved = S.vitals && S.vitals.sampling_ok === false;
+    chip("chipFps", starved ? "bad" : fps < 15 ? "warn" : "on",
+         fps.toFixed(0) + (starved ? " fps · too slow" : " fps"));
+  }
+}
+
+/* Frame scheduling.
+   Camera capture rides requestVideoFrameCallback where it exists — it fires
+   once per decoded frame with a real presentation timestamp, rather than once
+   per display refresh — and falls back to requestAnimationFrame.
+   The simulator is synthetic and owes nothing to the display, so it runs on a
+   plain timer, which also keeps it alive when the tab is hidden. */
+function startLoop(){
+  stopLoop();
+  if (S.source === "sim"){ simTimer = setInterval(tick, 33); return; }
+  if (video.requestVideoFrameCallback){
+    const step = () => { if (!S.running) return; tick(); vfc = video.requestVideoFrameCallback(step); };
+    vfc = video.requestVideoFrameCallback(step);
+  } else {
+    const step = () => { if (!S.running) return; tick(); raf = requestAnimationFrame(step); };
+    raf = requestAnimationFrame(step);
+  }
+}
+function stopLoop(){
+  cancelAnimationFrame(raf); raf = 0;
+  clearInterval(simTimer); simTimer = 0;
+  if (vfc && video.cancelVideoFrameCallback){ video.cancelVideoFrameCallback(vfc); vfc = 0; }
+}
+
+/* Browsers throttle hidden tabs to roughly one frame a second, which would
+   punch silent gaps in a recording rather than fail loudly. Say so, and stop
+   recording rather than banking a trace with holes in it. */
+document.addEventListener("visibilitychange", () => {
+  if (!S.running || S.source === "sim") return;
+  if (document.hidden){
+    stageMsg("Tab hidden — the browser throttles capture to about 1 fps. Bring this tab back to the front to resume measuring.");
+    chip("chipFps", "bad", "throttled");
+    if (S.recording){ send({ type:"session", action:"stop" }); log("recording paused — tab hidden"); }
+  } else {
+    stageMsg(""); log("tab visible again — capture resumed");
+  }
+});
+
+async function start(){
+  $("btnRun").disabled = true;
+  try {
+    if (!S.wsOk){
+      log("connecting to engine…");
+      if (!await connect()){
+        stageMsg("No engine on " + $("engUrl").value + ". Start it with:  python -m painface.server");
+        log("engine unreachable — action units and vitals need the Python engine");
+        return;
+      }
+    }
+    if (S.source === "camera"){
+      stageMsg("requesting camera…");
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video:{ width:{ ideal:1280 }, height:{ ideal:720 }, frameRate:{ ideal:30 }, facingMode:"user" },
+          audio:false });
+      } catch (e){
+        stageMsg("Camera blocked: " + e.message + ". Allow access, or use the Simulator.");
+        log("camera denied: " + e.name); return;
+      }
+      video.srcObject = stream;
+      await video.play();
+      S.videoDims = [video.videoWidth, video.videoHeight];
+      $("stageTag").textContent = `${video.videoWidth}×${video.videoHeight}`;
+      stageMsg("loading face mesh…");
+      await loadMesh();
+      stageMsg("");
+      /* lock exposure and white balance when the camera allows it — auto
+         exposure injects low-frequency noise straight into the pulse band */
+      try {
+        const tr = stream.getVideoTracks()[0], caps = tr.getCapabilities?.() || {};
+        const c = {};
+        if (caps.exposureMode?.includes("manual")) c.exposureMode = "manual";
+        if (caps.whiteBalanceMode?.includes("manual")) c.whiteBalanceMode = "manual";
+        if (Object.keys(c).length){ await tr.applyConstraints({ advanced:[c] }); log("exposure / white balance locked"); }
+      } catch {}
+    } else {
+      stage.classList.add("nomirror");
+    }
+    S.running = true; S.t0 = performance.now(); SIM.last = 0;
+    $("btnRun").textContent = "Stop";
+    $("stageTag").textContent = S.source === "sim" ? "scripted subject" : $("stageTag").textContent;
+    startLoop();
+    log("running — " + (S.source === "sim" ? "simulator" : "camera"));
+  } finally { $("btnRun").disabled = false; }
+}
+function stop(){
+  S.running = false; stopLoop();
+  if (video.srcObject){ video.srcObject.getTracks().forEach(t => t.stop()); video.srcObject = null; }
+  $("btnRun").textContent = "Start";
+  chip("chipFps", "", "— fps"); chip("chipAu", "", "— au/s"); chip("chipFace", "", "face —");
+  log("stopped");
+}
+$("btnRun").onclick = () => S.running ? stop() : start();
+
+/* --------------------------------------------------------------- boot -- */
+(async function boot(){
+  const ticks = $("gTicks");
+  /* gauge ticks every 2 NRS points across the 180° sweep */
+  for (let i = 0; i <= 10; i += 2){
+    const a = Math.PI * (1 - i / 10), r0 = 68, r1 = 74;
+    const x0 = 100 + Math.cos(a) * r0, y0 = 104 - Math.sin(a) * r0;
+    const x1 = 100 + Math.cos(a) * r1, y1 = 104 - Math.sin(a) * r1;
+    ticks.insertAdjacentHTML("beforeend",
+      `<line class="gTick" x1="${x0.toFixed(1)}" y1="${y0.toFixed(1)}" x2="${x1.toFixed(1)}" y2="${y1.toFixed(1)}"/>`);
+  }
+  $("gFill").style.strokeDasharray = GAUGE_LEN;
+  $("gFill").style.strokeDashoffset = GAUGE_LEN;
+
+  renderSession(); renderBaseline(); renderEpisodes(); renderMethods(); drawAll();
+
+  /* probe the engine so the header is honest before anyone presses Start */
+  try {
+    const base = ($("engUrl").value || location.origin).replace(/\/+$/, "");
+    const h = await (await fetch(base + "/api/health")).json();
+    S.auNames = h.au_names || {}; S.painAus = h.pain_aus || [];
+    S.detectedAus = h.detected_aus || []; S.pspiMax = (h.pspi && h.pspi.max) || 16;
+    buildAuGrid();
+    chip("chipWs", "on", "engine found");
+    chip("chipDet", h.au.ready ? "on" : "warn", "detector " + (h.au.ready ? h.au.device : "warming"));
+    $("trigThr").value = Math.round((h.fusion.trigger_on || 0.3) * 100);
+    $("trigOut").textContent = $("trigThr").value;
+    log(`engine ready · Py-Feat on ${h.au.device} · ${S.detectedAus.length} AUs · PSPI max ${S.pspiMax}`);
+  } catch {
+    chip("chipWs", "bad", "engine off");
+    log("engine not running — start it with:  python -m painface.server");
+  }
+})();
+</script>

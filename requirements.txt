@@ -1,9 +1,24 @@
+# Pain-Face — Python 3.11 or newer (py-feat 2.x requires it)
+#
+# macOS prerequisite for xgboost, which py-feat imports at load time:
+#     brew install libomp
+
+# Facial action units, emotions, landmarks, head pose, gaze, blendshapes
+py-feat>=2.1.3
+
+# rPPG signal processing
 numpy>=1.24
 scipy>=1.11
+
+# Server
 fastapi>=0.110
-uvicorn>=0.27
-python-multipart>=0.0.9
+uvicorn[standard]>=0.27        # the [standard] extra brings the WebSocket layer
+websockets>=12                 # explicit: /ws/live is 404 without it
+python-multipart>=0.0.9        # video upload on /api/video
+
+# Video decoding and offline plots
 opencv-python>=4.8
 matplotlib>=3.7
-# Optional: pretrained deep rPPG models (FacePhys, PhysMamba, PhysFormer, TS-CAN, EfficientPhys, PhysNet …)
-# open-rppg
+
+# Tests
+pytest>=8.0

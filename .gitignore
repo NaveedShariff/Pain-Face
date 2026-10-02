@@ -6,14 +6,21 @@ __pycache__/
 
 # Virtual environments
 .venv/
+.venv311/
 venv/
 env/
+
+# Model weights cached by py-feat / huggingface
+.cache/
+*.safetensors
+*.pth
 
 # Generated analysis output
 report.png
 report.json
 trace.csv
 synthetic.png
+painface-session.*
 *.webm
 *.mp4
 *.mov
