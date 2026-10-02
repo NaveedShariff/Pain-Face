@@ -375,6 +375,31 @@ def fuse_hr(results: dict):
 
 
 # ---------------------------------------------------------------- pipeline
+def _require_finite(x: np.ndarray, what: str) -> np.ndarray:
+    """Reject a non-finite signal with a message naming the culprit."""
+    if not np.isfinite(x).all():
+        bad = int((~np.isfinite(x)).sum())
+        raise ValueError(f"{what} has {bad}/{x.size} non-finite samples")
+    return x
+
+
+def _eval_method(name: str, rgb: np.ndarray, fs: float) -> np.ndarray:
+    """Run one extraction method and validate its output.
+
+    Flags, not values, are ignored here: some BLAS backends (notably Apple
+    Accelerate on arm64) leave the divide/overflow/invalid status flags set
+    after a matmul even when every element of the result is finite, and NumPy
+    then surfaces that as a RuntimeWarning. Trusting those flags made ICA,
+    PCA, PBV, LGI and OMIT report errors on perfectly good signals, so we
+    silence them and judge the result on its actual values instead.
+    """
+    with np.errstate(all="ignore"):
+        raw = np.asarray(METHODS[name](rgb, fs), dtype=float)
+    if raw.ndim != 1 or raw.size == 0:
+        raise ValueError(f"expected a 1-D signal, got shape {raw.shape}")
+    return _require_finite(raw, "extracted signal")
+
+
 def analyze(rgb: np.ndarray, fs: float, methods=None, primary: str = "POS",
             with_series: bool = True) -> dict:
     """Full analysis of a uniformly-sampled (3, N) RGB window."""
@@ -384,12 +409,14 @@ def analyze(rgb: np.ndarray, fs: float, methods=None, primary: str = "POS",
     series = {}
     for name in methods:
         try:
-            raw = METHODS[name](rgb, fs)
-            bvp = bandpass(detrend_tarvainen(raw), fs, *HR_BAND)
-            f, p = spectrum(bvp, fs)
-            hr, f0 = hr_from_spectrum(f, p)
-            fw, pw = welch_spectrum(bvp, fs)
-            hr_w, _ = hr_from_spectrum(fw, pw)
+            raw = _eval_method(name, rgb, fs)
+            with np.errstate(all="ignore"):  # see _eval_method
+                bvp = _require_finite(bandpass(detrend_tarvainen(raw), fs, *HR_BAND),
+                                      "band-passed signal")
+                f, p = spectrum(bvp, fs)
+                hr, f0 = hr_from_spectrum(f, p)
+                fw, pw = welch_spectrum(bvp, fs)
+                hr_w, _ = hr_from_spectrum(fw, pw)
             per[name] = {"hr": hr, "hr_welch": hr_w, "snr": snr_db(f, p, f0)}
             series[name] = (bvp, f, p)
         except Exception as e:  # keep the other methods alive
