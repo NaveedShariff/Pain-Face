@@ -312,6 +312,71 @@ footer{
 }
 footer b{color:var(--ink2);font-weight:500}
 footer em{font-style:normal;font-family:var(--display);font-size:13.5px;color:var(--ink)}
+
+/* ============================== motion =================================
+   Patterns borrowed from the motion galleries, with one rule that outranks
+   all of them: nothing that encodes a measurement is allowed to overshoot.
+   A springy gauge that sails past the reading before settling would show a
+   pain level the subject never had, so --spring is reserved for chrome and
+   measured values ease out instead. Durations stay under the ~300 ms it
+   takes a change to stop reading as the same value.
+   ======================================================================= */
+:root{
+  --ease-out:cubic-bezier(.22,.7,.26,1);     /* data: settles, never overshoots */
+  --spring:cubic-bezier(.34,1.4,.64,1);      /* chrome only: a little bounce   */
+  --dur-fast:140ms; --dur:240ms; --dur-slow:420ms;
+}
+
+/* Values that are not available yet shimmer rather than sitting as dashes,
+   so "still filling the buffer" reads differently from "measured nothing". */
+@keyframes shimmer{to{background-position:-200% 0}}
+.skel{
+  color:transparent!important; border-radius:5px; user-select:none;
+  background:linear-gradient(90deg,var(--grid) 25%,var(--raise) 38%,var(--grid) 62%);
+  background-size:200% 100%; animation:shimmer 1.5s linear infinite;
+}
+.skel *{visibility:hidden}
+
+/* Cards arrive in reading order, once, on first paint. */
+@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+main>section{animation:rise var(--dur-slow) var(--ease-out) backwards}
+main>section:nth-child(1){animation-delay:0ms}
+main>section:nth-child(2){animation-delay:40ms}
+main>section:nth-child(3){animation-delay:80ms}
+main>section:nth-child(4){animation-delay:120ms}
+main>section:nth-child(5){animation-delay:160ms}
+main>section:nth-child(6){animation-delay:200ms}
+main>section:nth-child(n+7){animation-delay:240ms}
+
+/* Press feedback: the surface yields, then returns with a little spring. */
+.btn{transition:background var(--dur-fast) var(--ease-out),
+                border-color var(--dur-fast) var(--ease-out),
+                transform var(--dur-fast) var(--spring)}
+.btn:active:not(:disabled){transform:scale(.97)}
+.seg button{transition:background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out)}
+
+/* An AU crossing threshold should catch the eye without flashing. */
+.aurow{transition:background var(--dur) var(--ease-out)}
+.aurow .code,.aurow output{transition:color var(--dur) var(--ease-out)}
+/* Bars carry 6 Hz data: long transitions would smear one reading into the
+   next, so they track quickly and linearly. */
+.track .fill{transition:width var(--dur-fast) linear, background var(--dur) var(--ease-out)}
+.pspiBar i{transition:width var(--dur) var(--ease-out)}
+.emo{transition:background var(--dur) var(--ease-out)}
+.emo .v{transition:color var(--dur) var(--ease-out)}
+.tile .v{transition:color var(--dur) var(--ease-out)}
+.gFill{transition:stroke-dashoffset var(--dur-slow) var(--ease-out), stroke var(--dur-slow) var(--ease-out), opacity var(--dur)}
+.gMark{transition:cx var(--dur-slow) var(--ease-out), cy var(--dur-slow) var(--ease-out), stroke var(--dur-slow) var(--ease-out), opacity var(--dur)}
+
+/* Honour the system setting: stillness is a legitimate preference, and this
+   screen is read by people who may already be uncomfortable. */
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{
+    animation-duration:.01ms!important; animation-iteration-count:1!important;
+    transition-duration:.01ms!important; scroll-behavior:auto!important;
+  }
+  .skel{animation:none;background:var(--grid)}
+}
 </style>
 
 <header>
@@ -962,6 +1027,69 @@ function drawSimStage(pulse, p){
   c.stroke(); c.globalAlpha = 1;
 }
 
+
+/* ==================================================================== */
+/*  Numeric motion                                                      */
+/*                                                                      */
+/*  Readings count up to their new value instead of snapping, which      */
+/*  makes a rising pain score legible as movement rather than as a       */
+/*  flicker. Three rules keep that honest on an instrument:              */
+/*    - the tween always ends on the exact value, never an eased approx; */
+/*    - it is short enough (<= 280 ms) that the display never lags the   */
+/*      data by a perceptible amount, even at the 6 Hz AU rate;          */
+/*    - a first value, a null, or reduced-motion snaps immediately.      */
+/* ==================================================================== */
+const REDUCED = matchMedia("(prefers-reduced-motion: reduce)");
+const _tweens = new Map();
+let _tweenRaf = 0;
+
+function setNum(id, value, render, ms = 260){
+  const el = $(id); if (!el) return;
+  if (value === null || value === undefined || !isFinite(value)){
+    _tweens.delete(id); el.innerHTML = render(null); return;
+  }
+  const prev = _tweens.get(id);
+  // A hidden tab throttles requestAnimationFrame to about 1 Hz, which would
+  // strand a tween part-way and leave a stale number on screen indefinitely.
+  // Correctness beats motion: when we cannot animate reliably, snap.
+  if (REDUCED.matches || document.hidden || prev === undefined){
+    _tweens.set(id, { el, from:value, to:value, cur:value, t0:0, ms, render, done:true });
+    el.innerHTML = render(value);
+    return;
+  }
+  if (prev.to === value) return;
+  _tweens.set(id, { el, from:prev.cur, to:value, cur:prev.cur,
+                    t0:performance.now(), ms, render, done:false });
+  if (!_tweenRaf) _tweenRaf = requestAnimationFrame(stepTweens);
+}
+function stepTweens(now){
+  let alive = false;
+  for (const t of _tweens.values()){
+    if (t.done) continue;
+    // Belt and braces: if frames stopped arriving for any reason, finish the
+    // tween on the next one we do get rather than easing from a stale clock.
+    if (now - t.t0 > t.ms * 3){
+      t.cur = t.to; t.done = true; t.el.innerHTML = t.render(t.to); continue;
+    }
+    const k = t.ms > 0 ? Math.min((now - t.t0) / t.ms, 1) : 1;
+    const e = 1 - Math.pow(1 - k, 3);                 // ease-out cubic, no overshoot
+    t.cur = t.from + (t.to - t.from) * e;
+    if (k >= 1){ t.cur = t.to; t.done = true; }       // land exactly on the value
+    else alive = true;
+    t.el.innerHTML = t.render(t.cur);
+  }
+  _tweenRaf = alive ? requestAnimationFrame(stepTweens) : 0;
+}
+function skel(el, on){ if (el) el.classList.toggle("skel", !!on); }
+
+/* Coming back to a backgrounded tab, show the truth at once. */
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) return;
+  for (const t of _tweens.values()){
+    if (!t.done){ t.cur = t.to; t.done = true; t.el.innerHTML = t.render(t.to); }
+  }
+});
+
 /* ==================================================================== */
 /*  Renderers                                                           */
 /* ==================================================================== */
@@ -1004,13 +1132,16 @@ function renderPain(){
   if (!p) return;
   const band = setAccent(p.nrs);
 
-  $("nrsNum").innerHTML = `${p.nrs.toFixed(1)}<small>/10</small>`;
+  setNum("nrsNum", p.nrs, v => v === null ? `&mdash;<small>/10</small>`
+                                         : `${v.toFixed(1)}<small>/10</small>`);
   $("painLabel").textContent = p.label || band.name;
   setGauge(p.nrs);
 
-  $("hFacial").innerHTML = `${pct(p.facial.corrected)}<small>%</small>`;
-  $("hAuto").innerHTML = p.autonomic.ready ? `${pct(p.autonomic.score)}<small>%</small>` : `—<small>%</small>`;
-  $("hConf").innerHTML = `${pct(p.confidence)}<small>%</small>`;
+  const asPct = v => v === null ? `&mdash;<small>%</small>` : `${Math.round(v * 100)}<small>%</small>`;
+  setNum("hFacial", p.facial.corrected, asPct);
+  setNum("hAuto", p.autonomic.ready ? p.autonomic.score : null, asPct);
+  setNum("hConf", p.confidence, asPct);
+  skel($("hAuto"), !p.autonomic.ready);
 
   const armed = !!p.triggered;
   $("hero").classList.toggle("armed", armed);
@@ -1025,8 +1156,8 @@ function renderPain(){
     : "Calibrate a baseline to let heart rate and HRV modulate the score.";
 
   /* PSPI */
-  $("pspiNum").textContent = fmt(p.facial.pspi, 2);
-  $("corrNum").textContent = pct(p.facial.corrected);
+  setNum("pspiNum", p.facial.pspi, v => v === null ? "&mdash;" : v.toFixed(2));
+  setNum("corrNum", p.facial.corrected, v => v === null ? "&mdash;" : String(Math.round(v * 100)));
   $("pspiTag").textContent = p.facial.smile > 0.4 ? "smile discounted" : "raw";
   const bar = $("pspiBar");
   if (bar.childElementCount !== 4) bar.innerHTML = Object.keys(PSPI_COLS).map(k => `<i data-k="${k}"></i>`).join("");
@@ -1043,7 +1174,7 @@ function renderPain(){
   meter("mMouth", "oMouth", p.facial.mouth, 1, v => pct(v) + "%");
 }
 function renderNoFace(){
-  $("nrsNum").innerHTML = `&mdash;<small>/10</small>`;
+  setNum("nrsNum", null, () => `&mdash;<small>/10</small>`);
   $("painLabel").textContent = "no face";
   setGauge(null);
   $("hero").classList.remove("armed"); $("heroState").classList.remove("armed");
@@ -1081,14 +1212,26 @@ function renderAus(){
     if (row) row.classList.toggle("live", v >= 0.5 && pain);
   }
 }
+/* Built once and updated in place. Rebuilding this row's innerHTML at the
+   6 Hz action-unit rate restarted every CSS transition on each frame, so the
+   values could never animate and the browser re-laid-out the row 6x a second
+   for a handful of digits. */
 function renderEmotions(){
   const e = (S.face && S.face.emotions) || {};
   const keys = Object.keys(e);
   const row = $("emoRow");
-  if (!keys.length){ row.innerHTML = ""; return; }
+  if (!keys.length){ row.innerHTML = ""; row.dataset.keys = ""; return; }
+  if (row.dataset.keys !== keys.join()){
+    row.dataset.keys = keys.join();
+    row.innerHTML = keys.map(k =>
+      `<div class="emo" data-k="${k}"><div class="k">${k.slice(0, 5)}</div>
+       <div class="v" id="emo-${k}">—</div></div>`).join("");
+  }
   const top = keys.reduce((a, b) => e[a] >= e[b] ? a : b);
-  row.innerHTML = keys.map(k =>
-    `<div class="emo${k === top ? " top" : ""}"><div class="k">${k.slice(0, 5)}</div><div class="v">${pct(e[k])}</div></div>`).join("");
+  for (const k of keys){
+    setNum(`emo-${k}`, e[k], v => v === null ? "—" : String(Math.round(v * 100)), 180);
+    row.querySelector(`.emo[data-k="${k}"]`).classList.toggle("top", k === top);
+  }
 }
 
 /* ----------------------------------------------------------- vitals --- */
@@ -1104,7 +1247,8 @@ function renderVitals(){
   $("vitAux").textContent = v.effective_fs
     ? `buffer ${fmt(v.buffer_s, 0)} s · ${fmt(v.effective_fs, 0)} Hz · ${v.analyses || 0} runs`
     : `buffer ${fmt(v.buffer_s, 0)} s`;
-  $("hrNum").textContent = v.fused_hr ? fmt(v.fused_hr, 0) : "\u2014";
+  setNum("hrNum", v.fused_hr ?? null, x => x === null ? "&mdash;" : String(Math.round(x)));
+  skel($("hrNum"), !v.fused_hr && v.sampling_ok !== false && v.buffer_s > 0);
   if (v.fused_hr) S.hrForBeat = v.fused_hr;
 
   /* Say plainly when frames are arriving too slowly to measure a pulse, rather
@@ -1116,18 +1260,29 @@ function renderVitals(){
   }
 
   const hrv = v.hrv || {}, resp = v.respiration || {};
-  const cells = [
-    `<div class="tile"><div class="k">Respiration</div><div class="v">${fmt(resp.fused, 1)}<small>br/min</small></div><div class="n">RIIV·RIAV·RSA</div></div>`,
-    `<div class="tile"><div class="k">Perfusion</div><div class="v">${fmt(v.perfusion_index_pct, 2)}<small>%</small></div><div class="n">green AC/DC</div></div>`,
-    ...TILES.map(t => {
-      const dim = t.gate && !v.hrv_ready;
-      return `<div class="tile${dim ? " dim" : ""}"><div class="k">${t.k}</div>
-        <div class="v">${dim ? "—" : fmt(hrv[t.id], t.d)}${t.u ? `<small>${t.u}</small>` : ""}</div>
-        <div class="n">${dim ? "needs ≥ 30 s" : t.n}</div></div>`;
-    }),
-    `<div class="tile"><div class="k">SpO₂ ratio</div><div class="v">${fmt(v.spo2_ratio, 2)}</div><div class="n">uncalibrated</div></div>`,
+  const spec = [
+    { id:"resp",  k:"Respiration", u:"br/min", d:1, n:"RIIV·RIAV·RSA", val:resp.fused },
+    { id:"perf",  k:"Perfusion",   u:"%",      d:2, n:"green AC/DC",   val:v.perfusion_index_pct },
+    ...TILES.map(t => ({ id:t.id, k:t.k, u:t.u, d:t.d, n:t.n, val:hrv[t.id], gate:t.gate })),
+    { id:"spo2",  k:"SpO₂ ratio",  u:"",       d:2, n:"uncalibrated",  val:v.spo2_ratio },
   ];
-  $("vitTiles").innerHTML = cells.join("");
+  const box = $("vitTiles");
+  if (box.childElementCount !== spec.length){
+    box.innerHTML = spec.map(t =>
+      `<div class="tile" data-id="${t.id}"><div class="k">${t.k}</div>
+       <div class="v"><span id="vt-${t.id}">—</span>${t.u ? `<small>${t.u}</small>` : ""}</div>
+       <div class="n" id="vn-${t.id}">${t.n}</div></div>`).join("");
+  }
+  for (const t of spec){
+    const gated = t.gate && !v.hrv_ready;
+    const tile = box.querySelector(`.tile[data-id="${t.id}"]`);
+    tile.classList.toggle("dim", !!gated);
+    setNum(`vt-${t.id}`, gated ? null : (t.val ?? null),
+           x => x === null ? "—" : x.toFixed(t.d));
+    // Distinguish "not measurable yet" from "measured and empty".
+    skel($(`vt-${t.id}`), !gated && (t.val === null || t.val === undefined) && v.ready);
+    $(`vn-${t.id}`).textContent = gated ? "needs ≥ 30 s" : t.n;
+  }
 }
 function renderBaseline(){
   const b = S.baseline;
