@@ -4,389 +4,250 @@
 <title>Pain-Face — multimodal pain intensity</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;450;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&family=DM+Mono:wght@400;500&display=swap">
 <style>
 /* =======================================================================
-   Pain-Face — a light, print-minded instrument.
+   Pain-Face
 
-   One theme, daylight only. Colour carries meaning here (which pain band,
-   which action unit is firing), so the surface stays paper-quiet and
-   nothing glows: an interface that shouts cannot also be read quickly.
-   The pain scale runs through earth pigments — sage, ochre, clay,
-   terracotta, oxblood — which darken as intensity climbs, so severity
-   survives greyscale printing and colour-vision differences alike.
+   Paper ground, flat ink, no gradients and no glow. Scale does the work:
+   a 190px reading against 10px mono labels, hairline rules, and one heavy
+   rule under the masthead that sets the structure for everything below.
+
+   Colour is meaning, never decoration. The severity ramp is printed
+   pigment — slate, ochre, burnt orange, brick, oxblood — and its lightness
+   falls as pain climbs, so severity survives greyscale and colour-vision
+   differences. Hue alone never carries it.
+
+   Nothing loops, breathes or pulses: a reading that is holding steady must
+   look like it is holding steady.
    ======================================================================= */
 :root{
-  /* surfaces */
-  --paper:#F7F6F2; --surface:#FFFDFA; --surface2:#FBFAF6; --raise:#F2F0EA;
-  --line:#E6E3DA; --line2:#D6D2C6; --grid:#ECE9E1; --grid-major:#DEDAD0;
+  --ground:#F0F0EE; --panel:#FFFFFF; --panel2:#FAFAF8; --raise:#F4F4F1;
+  --ink:#14161A; --ink2:#434A52; --muted:#767D86; --faint:#A2A8AF;
+  --rule:#DEDFDB; --rule2:#C3C5C0; --grid:#E7E8E4;
 
-  /* ink */
-  --ink:#1B1A17; --ink2:#4A4740; --muted:#7D786C; --faint:#A8A295;
+  --s0:#6B7884; --s1:#B07A1E; --s2:#BD5A1E; --s3:#A32C1B; --s4:#6E1420;
+  --accent:var(--s0);
+  --pulse:#A32C1B; --resp:#3F6079; --auto:#6A5578;
+  --ok:#2F6F4F;
 
-  /* pain scale — earth pigments, deepening with intensity */
-  --calm:#6E7F6B; --mild:#A8863F; --mod:#BE7340; --sev:#A94F3B; --crit:#86332F;
+  --display:"Bricolage Grotesque","Helvetica Neue",Helvetica,sans-serif;
+  --mono:"DM Mono",ui-monospace,"SF Mono",Menlo,monospace;
 
-  /* data series */
-  --pulse:#A94F3B; --resp:#5C7390; --auto:#7A6687; --face:#6E7F6B;
-  --r:#B0604F; --g:#6E7F6B; --b:#5C7390;
-
-  --accent:var(--calm); --accent-soft:#6E7F6B1a;
-
-  /* type */
-  --display:"Instrument Serif",ui-serif,Georgia,serif;
-  --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
-  --mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,monospace;
-
-  --radius:16px; --radius-s:10px;
-  --shade:0 1px 2px #1b1a1708;
-  --lift:0 1px 2px #1b1a170a, 0 10px 24px -16px #1b1a1726;
-  --ease:cubic-bezier(.22,.7,.26,1);
+  --ease:cubic-bezier(.2,.8,.2,1);
+  --dur-fast:140ms; --dur:260ms;
 }
 *{box-sizing:border-box;min-width:0}
 html{-webkit-text-size-adjust:100%}
 body{
-  margin:0; background:var(--paper); color:var(--ink);
-  font:450 14px/1.55 var(--sans);
-  font-feature-settings:"cv05" 1,"cv08" 1,"ss01" 1;
-  -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
-  padding-bottom:72px;
+  margin:0;background:var(--ground);color:var(--ink);
+  font:400 14px/1.6 var(--display);
+  -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;
 }
-h1,h2,h3{margin:0;font-weight:500}
+h1,h2,h3{margin:0;font-weight:600}
 button,input,select{font:inherit;color:inherit}
-:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:6px}
-.sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
-.num{font-family:var(--mono);font-variant-numeric:tabular-nums;font-weight:400;letter-spacing:-.02em}
+:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.sr{position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.m{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.eyebrow{font:400 10px/1 var(--mono);letter-spacing:.22em;text-transform:uppercase;color:var(--muted)}
+.hairline{flex:1;height:1px;background:var(--rule)}
 
-/* ============================== chrome ================================= */
+/* motion: arrival and change only */
+@keyframes in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes rise{from{transform:scaleY(.05)}to{transform:none}}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition-duration:.01ms!important}}
+
+/* ============================== masthead ============================== */
 header{
-  position:sticky; top:0; z-index:40; display:flex; align-items:center; gap:18px;
-  padding:14px 28px; background:color-mix(in srgb,var(--paper) 88%, transparent);
-  backdrop-filter:blur(16px) saturate(1.2);
-  border-bottom:1px solid var(--line);
+  position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:22px;
+  padding:16px 32px;background:var(--ground);border-bottom:1.5px solid var(--ink);
 }
-.brand{display:flex;align-items:center;gap:11px;margin-right:2px}
-.brand .mark{
-  width:32px;height:32px;border-radius:50%;display:grid;place-items:center;flex:none;
-  background:var(--surface); border:1px solid var(--line2);
-  transition:border-color .6s var(--ease);
-}
-.brand .mark svg{width:16px;height:16px;display:block;stroke:var(--accent);transition:stroke .6s var(--ease)}
-.brand b{font:400 20px/1 var(--display);letter-spacing:-.005em;display:block}
-.brand span{color:var(--muted);font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;display:block;margin-top:3px}
-
-.seg{display:flex;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:999px;padding:1px;overflow:hidden}
-.seg button{
-  border:0;background:var(--surface);color:var(--ink2);padding:6px 16px;
-  cursor:pointer;font-size:12.5px;font-weight:500;transition:.18s var(--ease);
-}
-.seg button:first-child{border-radius:999px 0 0 999px;padding-left:18px}
-.seg button:last-child{border-radius:0 999px 999px 0;padding-right:18px}
-.seg button:hover{background:var(--raise)}
-.seg button[aria-pressed="true"]{background:var(--ink);color:var(--surface)}
-
+.brand{display:flex;align-items:baseline;gap:12px}
+.brand b{font-size:19px;font-weight:800;letter-spacing:-.035em}
+.brand b i{font-style:normal;color:var(--accent);transition:color var(--dur) var(--ease)}
+.seg{display:flex;border:1.5px solid var(--ink);border-radius:0}
+.seg button{border:0;background:transparent;color:var(--ink);padding:7px 16px;cursor:pointer;
+  font-size:12.5px;font-weight:500;transition:background var(--dur-fast) var(--ease)}
+.seg button+button{border-left:1.5px solid var(--ink)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--ground)}
 .spacer{flex:1}
-.chips{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
-.chip{
-  display:inline-flex;align-items:center;gap:6px;padding:4px 11px;border-radius:999px;
-  background:var(--surface);border:1px solid var(--line);font-size:11px;color:var(--ink2);
-  white-space:nowrap;letter-spacing:.01em;
-}
-.chip .dot{width:5px;height:5px;border-radius:50%;background:var(--faint);flex:none;transition:background .3s}
-.chip.on .dot{background:var(--calm)}
-.chip.warn .dot{background:var(--mild)}
-.chip.bad .dot{background:var(--sev)}
-.chip.bad{border-color:color-mix(in srgb,var(--sev) 35%,var(--line));color:var(--sev)}
-
+.chips{display:flex;gap:18px;align-items:center}
+.chip{display:inline-flex;align-items:center;gap:7px;font:400 10px var(--mono);
+  letter-spacing:.12em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+.chip .dot{width:5px;height:5px;background:var(--rule2);flex:none;transition:background var(--dur)}
+.chip.on .dot{background:var(--ok)}
+.chip.on{color:var(--ink2)}
+.chip.warn .dot{background:var(--s1)}
+.chip.bad .dot{background:var(--s3)}
+.chip.bad{color:var(--s3)}
 .btn{
-  border:1px solid var(--line2);background:var(--surface);color:var(--ink);
-  padding:8px 16px;border-radius:999px;cursor:pointer;font-size:13px;font-weight:500;
-  transition:.18s var(--ease);display:inline-flex;align-items:center;gap:7px;
+  border:1.5px solid var(--ink);background:transparent;color:var(--ink);padding:7px 18px;
+  cursor:pointer;font-size:12.5px;font-weight:500;
+  transition:background var(--dur-fast) var(--ease),color var(--dur-fast) var(--ease);
 }
-.btn:hover:not(:disabled){background:var(--raise);border-color:var(--ink2)}
-.btn:active:not(:disabled){transform:translateY(.5px)}
-.btn:disabled{opacity:.38;cursor:not-allowed}
-.btn.primary{background:var(--ink);border-color:var(--ink);color:var(--surface);padding-inline:20px}
-.btn.primary:hover:not(:disabled){background:#000;border-color:#000}
-.btn.danger{color:var(--sev);border-color:color-mix(in srgb,var(--sev) 28%,var(--line2))}
-.btn.danger:hover:not(:disabled){background:color-mix(in srgb,var(--sev) 7%,var(--surface))}
-.btn.rec{background:var(--sev);border-color:var(--sev);color:#fff}
-.btn.rec:hover:not(:disabled){background:var(--crit);border-color:var(--crit)}
+.btn:hover:not(:disabled){background:var(--ink);color:var(--ground)}
+.btn:disabled{opacity:.32;cursor:not-allowed}
+.btn.primary{background:var(--ink);color:var(--ground)}
+.btn.primary:hover:not(:disabled){background:#000}
+.btn.danger{border-color:var(--s3);color:var(--s3)}
+.btn.danger:hover:not(:disabled){background:var(--s3);color:var(--panel)}
+.btn.rec{background:var(--s3);border-color:var(--s3);color:var(--panel)}
 
-/* =============================== layout ================================ */
-main{
-  display:grid; grid-template-columns:repeat(12,1fr); gap:18px;
-  padding:26px 28px; max-width:1760px; margin:0 auto;
-}
-.card{
-  background:var(--surface); border:1px solid var(--line); border-radius:var(--radius);
-  padding:20px; box-shadow:var(--shade); display:flex; flex-direction:column; min-height:0;
-  transition:box-shadow .3s var(--ease), border-color .3s var(--ease);
-}
-.card:hover{box-shadow:var(--lift)}
-.card>.hd{display:flex;align-items:baseline;gap:12px;margin:0 0 16px;padding-bottom:11px;border-bottom:1px solid var(--line)}
-.card>.hd h2{font-size:11px;text-transform:uppercase;letter-spacing:.13em;color:var(--muted);font-weight:600}
-.card>.hd .aux{margin-left:auto;font:400 10.5px/1 var(--mono);color:var(--faint);letter-spacing:0}
+/* =============================== layout =============================== */
+main{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:0;
+  max-width:1840px;margin:0 auto;border-left:1px solid var(--rule)}
+section{border-right:1px solid var(--rule);border-bottom:1px solid var(--rule);
+  padding:26px 28px;background:var(--ground);min-width:0;display:flex;flex-direction:column;
+  animation:in 420ms var(--ease) backwards}
+section:nth-child(2){animation-delay:50ms}
+section:nth-child(3){animation-delay:100ms}
+section:nth-child(n+4){animation-delay:150ms}
+.hd{display:flex;align-items:baseline;gap:14px;margin-bottom:20px}
+.hd h2{font:400 10px/1 var(--mono);letter-spacing:.22em;text-transform:uppercase;color:var(--muted)}
+.hd .aux{margin-left:auto;font:400 10px var(--mono);letter-spacing:.08em;color:var(--faint)}
 .c3{grid-column:span 3}.c4{grid-column:span 4}.c5{grid-column:span 5}
-.c6{grid-column:span 6}.c7{grid-column:span 7}.c8{grid-column:span 8}
-.c9{grid-column:span 9}.c12{grid-column:span 12}
-@media(max-width:1500px){.c3{grid-column:span 4}.c4{grid-column:span 6}.c5{grid-column:span 6}.c7,.c8,.c9{grid-column:span 12}}
-@media(max-width:980px){
-  main{grid-template-columns:1fr;padding:18px 16px;gap:14px}
+.c6{grid-column:span 6}.c7{grid-column:span 7}.c8{grid-column:span 8}.c12{grid-column:span 12}
+@media(max-width:1440px){.c3{grid-column:span 6}.c4{grid-column:span 6}.c5{grid-column:span 12}
+  .c7{grid-column:span 12}.c8{grid-column:span 12}}
+@media(max-width:900px){main{grid-template-columns:1fr}
   header{padding:12px 16px;gap:12px;flex-wrap:wrap}
-  .c3,.c4,.c5,.c6,.c7,.c8,.c9,.c12{grid-column:span 1}
-}
+  section{padding:20px 16px}
+  .c3,.c4,.c5,.c6,.c7,.c8,.c12{grid-column:span 1}}
 
-/* ============================ pain hero ================================ */
-.hero{grid-column:span 5;position:relative;overflow:hidden}
-.hero::after{
-  content:""; position:absolute; inset:0 auto 0 0; width:3px;
-  background:var(--accent); opacity:0; transition:opacity .5s var(--ease);
-}
-.hero.armed::after{opacity:1}
-.hero.armed{border-color:color-mix(in srgb,var(--accent) 32%,var(--line))}
+/* ================================ hero ================================ */
+.nrsRow{display:flex;align-items:flex-start;gap:16px;margin-top:10px}
+.nrs{font:800 clamp(96px,11vw,190px)/.76 var(--display);letter-spacing:-.06em;
+  font-variant-numeric:tabular-nums}
+.nrsRow .over{font:400 17px var(--mono);color:var(--muted);padding-top:18px}
+.bandBox{margin-left:auto;text-align:right;padding-top:12px}
+.bandName{font:700 clamp(22px,2.4vw,38px)/1 var(--display);letter-spacing:-.03em;
+  color:var(--accent);transition:color var(--dur) var(--ease)}
+.bandSub{font:400 10px var(--mono);letter-spacing:.14em;color:var(--muted);margin-top:8px;text-transform:uppercase}
+.steps{display:flex;gap:5px;margin-top:34px}
+.step{flex:1}
+.step i{display:block;height:46px;border:1.5px solid var(--rule2);background:transparent;
+  transition:background var(--dur) var(--ease),border-color var(--dur) var(--ease)}
+.step span{display:block;font:400 9px var(--mono);letter-spacing:.14em;text-transform:uppercase;
+  margin-top:8px;color:var(--muted);transition:color var(--dur)}
+.step.on i{border-color:var(--accent);background:var(--accent)}
+.step.on span{color:var(--ink)}
+.trig{display:flex;align-items:center;gap:10px;margin-top:26px;padding:12px 0;
+  border-top:1px solid var(--rule);font-size:12.5px;color:var(--ink2)}
+.trig .pip{width:6px;height:6px;background:var(--rule2);flex:none;transition:background var(--dur)}
+.trig.armed .pip{background:var(--accent)}
+.trig.armed{color:var(--ink)}
+.cells{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-top:1px solid var(--rule);margin-top:4px}
+.cell{padding:18px 20px 0 0}
+.cell+.cell{border-left:1px solid var(--rule);padding-left:20px}
+.cell .k{font:400 9.5px var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.cell .v{font:700 clamp(26px,2.6vw,36px)/1.1 var(--display);letter-spacing:-.04em;margin-top:9px;
+  font-variant-numeric:tabular-nums}
+.cell .v small{font:400 14px var(--display);color:var(--muted)}
+.cell .n{font:400 9.5px var(--mono);color:var(--faint);margin-top:6px;letter-spacing:.06em}
+.note{font-size:11.5px;color:var(--muted);margin:16px 0 0;line-height:1.6}
 
-.gaugeWrap{position:relative;display:grid;place-items:center;padding:12px 0 0}
-.gaugeWrap svg{width:100%;max-width:340px;height:auto;display:block;overflow:visible}
-.gTrack{fill:none;stroke:var(--grid);stroke-width:6;stroke-linecap:round}
-.gFill{
-  fill:none;stroke:var(--accent);stroke-width:6;stroke-linecap:round;
-  transition:stroke-dashoffset .6s var(--ease), stroke .5s var(--ease), opacity .3s;
-}
-.gMark{fill:var(--surface);stroke:var(--accent);stroke-width:2.5;transition:stroke .5s var(--ease), opacity .3s}
-.gTick{stroke:var(--line2);stroke-width:1}
-.gaugeMid{position:absolute;top:50%;left:0;right:0;transform:translateY(-30%);text-align:center;pointer-events:none}
-.nrs{
-  font:400 76px/.84 var(--display); letter-spacing:-.02em; color:var(--ink);
-  font-variant-numeric:tabular-nums; transition:color .5s var(--ease);
-}
-.nrs small{font:400 20px/1 var(--sans);color:var(--faint);letter-spacing:0;margin-left:1px}
-.painLabel{
-  margin-top:10px;font-size:10.5px;font-weight:600;letter-spacing:.17em;
-  text-transform:uppercase;color:var(--accent);transition:color .5s var(--ease);
-}
-.gaugeScale{
-  display:flex;justify-content:space-between;max-width:340px;margin:6px auto 0;width:100%;
-  padding:0 4px;font:400 9.5px/1 var(--mono);color:var(--faint);letter-spacing:.02em;
-}
-.heroState{
-  display:flex;align-items:center;gap:9px;margin:20px 0 0;padding:11px 14px;
-  border-radius:var(--radius-s);background:var(--surface2);border:1px solid var(--line);
-  font-size:12.5px;color:var(--ink2);transition:.35s var(--ease);
-}
-.heroState .pip{width:6px;height:6px;border-radius:50%;background:var(--faint);flex:none;transition:.3s}
-.heroState.armed{background:var(--accent-soft);border-color:color-mix(in srgb,var(--accent) 26%,var(--line));color:var(--ink)}
-.heroState.armed .pip{background:var(--accent);animation:pip 2s var(--ease) infinite}
-@keyframes pip{0%,100%{opacity:1}50%{opacity:.3}}
+/* ============================= face plate ============================= */
+.plate{width:100%;max-width:392px;height:auto;display:block;margin:4px auto 0}
+.zones{margin-top:18px;border-top:1px solid var(--rule)}
+.zone{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--rule)}
+.zone .c{font:500 10.5px var(--mono);letter-spacing:.04em;width:60px;color:var(--muted);transition:color var(--dur)}
+.zone .n{font-size:12px;color:var(--muted);flex:1}
+.zone .v{font:400 11px var(--mono);color:var(--muted);transition:color var(--dur)}
+.zone .bar{width:56px;height:3px;background:var(--grid);flex:none}
+.zone .bar i{display:block;height:100%;width:0;background:var(--rule2);
+  transition:width var(--dur-fast) linear,background var(--dur)}
+.zone.on .c,.zone.on .v{color:var(--ink)}
+.zone.on .n{color:var(--ink2)}
 
-.heroGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:0;margin-top:18px;border-top:1px solid var(--line)}
-.hCell{padding:14px 14px 2px;border-right:1px solid var(--line)}
-.hCell:last-child{border-right:0}
-.hCell .k{font-size:9.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:600}
-.hCell .v{font:400 23px/1.2 var(--mono);letter-spacing:-.03em;margin-top:5px;color:var(--ink)}
-.hCell .v small{font:400 11px var(--sans);color:var(--faint);margin-left:1px}
+/* ============================== AU bank =============================== */
+.bank{display:flex;gap:4px;align-items:flex-end;height:132px;border-bottom:1.5px solid var(--ink)}
+.bankCol{flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%}
+.bankCol i{display:block;width:100%;min-height:2px;background:var(--grid);transform-origin:bottom;
+  transition:height var(--dur-fast) linear,background var(--dur)}
+.bankLabels{display:flex;gap:4px;margin-top:9px}
+.bankLabels span{flex:1;text-align:center;font:400 9px var(--mono);color:var(--faint);transition:color var(--dur)}
+.bankLabels span.hot{color:var(--ink)}
 
-/* ============================== meters ================================= */
-.rows{display:flex;flex-direction:column;gap:9px}
-.mrow{display:grid;grid-template-columns:118px 1fr 48px;align-items:center;gap:12px;font-size:12px}
-.mrow>label{color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.track{height:4px;background:var(--grid);border-radius:999px;overflow:hidden}
-.track .fill{height:100%;background:var(--accent);border-radius:999px;width:0;transition:width .3s var(--ease), background .3s}
-.track.thin{height:3px}
-.mrow output{text-align:right;font:400 11px var(--mono);color:var(--muted)}
-
-/* AU matrix */
-.auGrid{display:grid;grid-template-columns:repeat(2,1fr);gap:0 28px}
-@media(max-width:1200px){.auGrid{grid-template-columns:1fr}}
-.aurow{
-  display:grid;grid-template-columns:44px 1fr 38px;align-items:center;gap:11px;
-  padding:7px 8px;border-radius:7px;margin:0 -8px;
-  border-bottom:1px solid var(--line);transition:background .25s var(--ease);
-}
-.aurow .code{font:500 10.5px var(--mono);color:var(--muted);letter-spacing:-.01em;transition:color .25s}
-.aurow output{text-align:right;font:400 10.5px var(--mono);color:var(--faint);transition:color .25s}
-.aurow.isPain .code{color:var(--ink2)}
-.aurow.live{background:var(--accent-soft);border-bottom-color:transparent}
-.aurow.live .code{color:var(--sev);font-weight:500}
-.aurow.live output{color:var(--ink)}
-
-/* PSPI */
-.pspiBar{display:flex;height:10px;border-radius:999px;overflow:hidden;background:var(--grid)}
-.pspiBar i{display:block;height:100%;transition:width .35s var(--ease)}
-.pspiLegend{display:flex;flex-direction:column;gap:0;margin-top:14px;font-size:11.5px}
-.pspiLegend div{display:flex;align-items:center;gap:9px;color:var(--ink2);padding:7px 0;border-bottom:1px solid var(--line)}
-.pspiLegend div:last-child{border-bottom:0}
-.pspiLegend i{width:7px;height:7px;border-radius:50%;flex:none}
-.pspiLegend b{margin-left:auto;font:400 11px var(--mono);color:var(--ink);font-weight:400}
-.bigRow{display:flex;align-items:baseline;gap:7px;margin-bottom:14px}
-.bigRow .n{font:400 40px/1 var(--display);letter-spacing:-.015em;color:var(--ink)}
-.bigRow .d{font-size:12px;color:var(--muted)}
-.bigRow .tag{
-  margin-left:auto;font-size:10px;padding:3px 9px;border-radius:999px;
-  background:var(--surface2);border:1px solid var(--line);color:var(--muted);letter-spacing:.03em;
-}
-
-/* ============================== stage ================================== */
-.stage{
-  position:relative;background:#E8E5DD;border-radius:var(--radius-s);overflow:hidden;
-  aspect-ratio:4/3;border:1px solid var(--line);
-}
-.stage video,.stage canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
-.stage .tag{
-  position:absolute;top:10px;left:10px;font:400 10px var(--mono);padding:4px 9px;border-radius:999px;
-  background:color-mix(in srgb,var(--surface) 92%,transparent);color:var(--ink2);
-  backdrop-filter:blur(8px);border:1px solid var(--line);
-}
-.stage .msg{
-  position:absolute;inset:auto 10px 10px;font-size:11.5px;padding:9px 12px;border-radius:9px;
-  background:color-mix(in srgb,var(--surface) 95%,transparent);color:var(--ink2);
-  backdrop-filter:blur(8px);border:1px solid var(--line);line-height:1.45;
-}
-.stageOpts{display:flex;gap:16px;flex-wrap:wrap;margin-top:14px;font-size:11.5px;color:var(--ink2)}
-.stageOpts label{display:inline-flex;align-items:center;gap:6px;cursor:pointer}
-.stageOpts input{accent-color:var(--ink);margin:0}
-.emoRow{display:flex;gap:0;margin-top:16px;border-top:1px solid var(--line)}
-.emo{flex:1 1 0;padding:11px 4px 2px;text-align:center;border-right:1px solid var(--line);transition:.25s var(--ease)}
+/* =============================== stage ================================ */
+.stage{position:relative;background:var(--raise);overflow:hidden;aspect-ratio:4/3;
+  border:1px solid var(--rule)}
+.stage video,.stage #overlay{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
+  display:block;transform:scaleX(-1)}
+.stage.nomirror video,.stage.nomirror #overlay{transform:none}
+.stage .tag{position:absolute;top:10px;left:10px;font:400 9.5px var(--mono);letter-spacing:.1em;
+  padding:4px 9px;background:var(--panel);color:var(--ink2);border:1px solid var(--rule)}
+.stage .msg{position:absolute;inset:auto 10px 10px;font-size:11.5px;padding:9px 11px;
+  background:var(--panel);color:var(--ink2);border:1px solid var(--rule);line-height:1.5}
+.opts{display:flex;gap:16px;flex-wrap:wrap;margin-top:14px;font-size:11.5px;color:var(--ink2)}
+.opts label{display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+.opts input{accent-color:var(--ink);margin:0}
+.emoRow{display:flex;margin-top:16px;border-top:1px solid var(--rule)}
+.emo{flex:1;padding:10px 2px 0;text-align:center;border-right:1px solid var(--rule)}
 .emo:last-child{border-right:0}
-.emo .k{font-size:8.5px;text-transform:uppercase;letter-spacing:.09em;color:var(--faint);font-weight:600}
-.emo .v{font:400 15px var(--mono);margin-top:4px;color:var(--ink2)}
-.emo.top .k{color:var(--accent)}
+.emo .k{font:400 8.5px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+.emo .v{font:400 14px var(--mono);margin-top:4px;color:var(--muted);transition:color var(--dur)}
+.emo.top .k{color:var(--ink2)}
 .emo.top .v{color:var(--ink)}
 
-/* ============================== vitals ================================= */
-.vitalHero{display:flex;align-items:center;gap:16px;padding:2px 0 20px;border-bottom:1px solid var(--line);margin-bottom:18px}
-.heart{width:26px;height:26px;fill:var(--pulse);flex:none;opacity:.9}
-.heart.beat{animation:beat .7s var(--ease)}
-@keyframes beat{0%{transform:scale(1)}20%{transform:scale(1.18)}45%{transform:scale(.98)}100%{transform:scale(1)}}
-.hrNum{font:400 50px/1 var(--display);letter-spacing:-.02em;color:var(--ink)}
-.hrUnit{font-size:9.5px;letter-spacing:.14em;color:var(--muted);text-transform:uppercase;margin-top:6px;font-weight:600}
-.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--radius-s);overflow:hidden}
-.tile{background:var(--surface);padding:12px 13px;transition:background .25s var(--ease)}
-.tile:hover{background:var(--surface2)}
-.tile .k{font-size:9px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:600}
-.tile .v{font:400 21px/1.2 var(--mono);letter-spacing:-.03em;margin-top:5px;color:var(--ink)}
-.tile .v small{font:400 10px var(--sans);color:var(--faint);margin-left:2px}
-.tile .n{font-size:9.5px;color:var(--faint);margin-top:4px}
+/* =============================== vitals =============================== */
+.hrRow{display:flex;align-items:flex-end;gap:14px;padding-bottom:18px;border-bottom:1px solid var(--rule)}
+.hrNum{font:800 clamp(52px,6vw,74px)/1 var(--display);letter-spacing:-.055em;font-variant-numeric:tabular-nums}
+.hrUnit{font:400 10px var(--mono);letter-spacing:.16em;color:var(--muted);text-transform:uppercase;padding-bottom:9px}
+.heart{width:22px;height:22px;fill:var(--pulse);margin-left:auto;margin-bottom:10px}
+.heart.beat{animation:beatp .7s var(--ease)}
+@keyframes beatp{0%{transform:scale(1)}20%{transform:scale(1.16)}45%{transform:scale(.98)}100%{transform:scale(1)}}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr))}
+.tile{padding:14px 14px 14px 0;border-bottom:1px solid var(--rule)}
+.tile+.tile{border-left:1px solid var(--rule);padding-left:14px}
+.tile .k{font:400 9px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.tile .v{font:400 19px var(--mono);margin-top:6px;color:var(--ink);transition:color var(--dur)}
+.tile .v small{font:400 10px var(--display);color:var(--faint)}
+.tile .n{font:400 9px var(--mono);color:var(--faint);margin-top:4px}
 .tile.dim{opacity:.4}
+.skel{color:transparent!important;background:var(--grid);border-radius:2px}
 
-/* ============================== charts ================================= */
-.chart{position:relative;width:100%;height:132px}
-.chart.tall{height:200px}
-.chart.short{height:98px}
+/* =============================== charts =============================== */
+.chart{position:relative;width:100%;height:150px}
+.chart.tall{height:230px}
+.chart.short{height:104px}
 .chart canvas{position:absolute;inset:0;width:100%;height:100%}
-.legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:14px;font-size:10.5px;color:var(--muted)}
+.legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:12px;font:400 10px var(--mono);
+  letter-spacing:.06em;color:var(--muted);text-transform:uppercase}
 .legend span{display:inline-flex;align-items:center;gap:6px}
-.legend i{width:12px;height:2px;border-radius:2px;flex:none}
+.legend i{width:13px;height:2px;flex:none}
 
-/* ============================== tables ================================= */
+/* =============================== tables =============================== */
 table{width:100%;border-collapse:collapse;font-size:12px}
-th,td{text-align:right;padding:9px 8px;border-bottom:1px solid var(--line)}
-th{color:var(--muted);font-weight:600;font-size:9.5px;text-transform:uppercase;letter-spacing:.1em}
+th,td{text-align:right;padding:9px 8px;border-bottom:1px solid var(--rule)}
+th{font:400 9px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
 th:first-child,td:first-child{text-align:left}
-td{font-family:var(--mono);font-size:11.5px;color:var(--ink2)}
+td{font-family:var(--mono);font-size:11px;color:var(--ink2)}
 tbody tr:last-child td{border-bottom:0}
-tbody tr{transition:background .2s}
-tbody tr:hover td{background:var(--surface2)}
-.empty{color:var(--faint);font-size:12px;padding:22px 2px;text-align:center;font-family:var(--sans)}
+.empty{color:var(--faint);font-size:12px;padding:20px 2px;text-align:center;font-family:var(--display)}
 
-/* ============================= controls ================================ */
-.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:16px}
-.field label{display:block;font-size:9.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:7px;font-weight:600}
-.field input[type=text],.field select{
-  width:100%;background:var(--surface2);border:1px solid var(--line2);border-radius:9px;
-  padding:9px 11px;font-size:12.5px;transition:.18s var(--ease);
-}
-.field input[type=text]:focus,.field select:focus{border-color:var(--ink2);outline:0;background:var(--surface)}
-.field input[type=range]{width:100%;accent-color:var(--ink);margin-top:4px}
-.field output{font-family:var(--mono);color:var(--ink);letter-spacing:-.02em}
-.btnRow{display:flex;gap:9px;flex-wrap:wrap;margin-top:18px}
-.out{
-  background:var(--surface2);border:1px solid var(--line);border-radius:var(--radius-s);padding:13px;
-  font:400 11px/1.65 var(--mono);color:var(--muted);white-space:pre-wrap;
-  max-height:148px;overflow:auto;margin:18px 0 0;
-}
-.note{font-size:11px;color:var(--faint);margin:14px 0 0;line-height:1.6}
-footer{
-  max-width:1760px;margin:10px auto 0;padding:26px 28px;color:var(--muted);font-size:11.5px;line-height:1.75;
-  border-top:1px solid var(--line);
-}
+/* ============================== controls ============================== */
+.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:20px}
+.field label{display:block;font:400 9.5px var(--mono);letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted);margin-bottom:8px}
+.field label b{color:var(--ink);font-weight:400}
+.field input[type=text],.field select{width:100%;background:var(--panel);border:1px solid var(--rule2);
+  padding:9px 11px;font-size:12.5px;border-radius:0}
+.field input[type=text]:focus,.field select:focus{border-color:var(--ink);outline:0}
+.field input[type=range]{width:100%;accent-color:var(--ink)}
+.btnRow{display:flex;gap:9px;flex-wrap:wrap;margin-top:20px}
+.out{background:var(--panel);border:1px solid var(--rule);padding:12px;
+  font:400 10.5px/1.7 var(--mono);color:var(--muted);white-space:pre-wrap;
+  max-height:132px;overflow:auto;margin:18px 0 0}
+footer{max-width:1840px;margin:0 auto;padding:26px 32px 60px;color:var(--muted);
+  font-size:11.5px;line-height:1.75;border-left:1px solid var(--rule);border-right:1px solid var(--rule)}
 footer b{color:var(--ink2);font-weight:500}
-footer em{font-style:normal;font-family:var(--display);font-size:13.5px;color:var(--ink)}
-
-/* ============================== motion =================================
-   Patterns borrowed from the motion galleries, with one rule that outranks
-   all of them: nothing that encodes a measurement is allowed to overshoot.
-   A springy gauge that sails past the reading before settling would show a
-   pain level the subject never had, so --spring is reserved for chrome and
-   measured values ease out instead. Durations stay under the ~300 ms it
-   takes a change to stop reading as the same value.
-   ======================================================================= */
-:root{
-  --ease-out:cubic-bezier(.22,.7,.26,1);     /* data: settles, never overshoots */
-  --spring:cubic-bezier(.34,1.4,.64,1);      /* chrome only: a little bounce   */
-  --dur-fast:140ms; --dur:240ms; --dur-slow:420ms;
-}
-
-/* Values that are not available yet shimmer rather than sitting as dashes,
-   so "still filling the buffer" reads differently from "measured nothing". */
-@keyframes shimmer{to{background-position:-200% 0}}
-.skel{
-  color:transparent!important; border-radius:5px; user-select:none;
-  background:linear-gradient(90deg,var(--grid) 25%,var(--raise) 38%,var(--grid) 62%);
-  background-size:200% 100%; animation:shimmer 1.5s linear infinite;
-}
-.skel *{visibility:hidden}
-
-/* Cards arrive in reading order, once, on first paint. */
-@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
-main>section{animation:rise var(--dur-slow) var(--ease-out) backwards}
-main>section:nth-child(1){animation-delay:0ms}
-main>section:nth-child(2){animation-delay:40ms}
-main>section:nth-child(3){animation-delay:80ms}
-main>section:nth-child(4){animation-delay:120ms}
-main>section:nth-child(5){animation-delay:160ms}
-main>section:nth-child(6){animation-delay:200ms}
-main>section:nth-child(n+7){animation-delay:240ms}
-
-/* Press feedback: the surface yields, then returns with a little spring. */
-.btn{transition:background var(--dur-fast) var(--ease-out),
-                border-color var(--dur-fast) var(--ease-out),
-                transform var(--dur-fast) var(--spring)}
-.btn:active:not(:disabled){transform:scale(.97)}
-.seg button{transition:background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out)}
-
-/* An AU crossing threshold should catch the eye without flashing. */
-.aurow{transition:background var(--dur) var(--ease-out)}
-.aurow .code,.aurow output{transition:color var(--dur) var(--ease-out)}
-/* Bars carry 6 Hz data: long transitions would smear one reading into the
-   next, so they track quickly and linearly. */
-.track .fill{transition:width var(--dur-fast) linear, background var(--dur) var(--ease-out)}
-.pspiBar i{transition:width var(--dur) var(--ease-out)}
-.emo{transition:background var(--dur) var(--ease-out)}
-.emo .v{transition:color var(--dur) var(--ease-out)}
-.tile .v{transition:color var(--dur) var(--ease-out)}
-.gFill{transition:stroke-dashoffset var(--dur-slow) var(--ease-out), stroke var(--dur-slow) var(--ease-out), opacity var(--dur)}
-.gMark{transition:cx var(--dur-slow) var(--ease-out), cy var(--dur-slow) var(--ease-out), stroke var(--dur-slow) var(--ease-out), opacity var(--dur)}
-
-/* Honour the system setting: stillness is a legitimate preference, and this
-   screen is read by people who may already be uncomfortable. */
-@media (prefers-reduced-motion: reduce){
-  *,*::before,*::after{
-    animation-duration:.01ms!important; animation-iteration-count:1!important;
-    transition-duration:.01ms!important; scroll-behavior:auto!important;
-  }
-  .skel{animation:none;background:var(--grid)}
-}
+footer em{font-style:normal;font-weight:800;color:var(--ink);letter-spacing:-.02em}
 </style>
 
 <header>
   <div class="brand">
-    <div class="mark" id="mark">
-      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M3 12h3l2-5 3 10 2.5-7 1.8 4H21"/>
-      </svg>
-    </div>
-    <div><b>Pain-Face</b><span>action units · rPPG · fused</span></div>
+    <b>Pain<i>·</i>Face</b>
+    <span class="eyebrow">Action units · rPPG · fused</span>
   </div>
 
   <div class="seg" role="group" aria-label="Source">
@@ -406,39 +267,99 @@ main>section:nth-child(n+7){animation-delay:240ms}
 </header>
 
 <main>
-  <!-- ======================= pain intensity hero ======================= -->
-  <section class="card hero" id="hero" aria-label="Pain intensity">
-    <div class="hd"><h2>Pain intensity</h2><span class="aux" id="painAux">awaiting face</span></div>
+  <!-- ============================== hero =============================== -->
+  <section class="c7" id="hero" aria-label="Pain intensity">
+    <div class="hd">
+      <h2>Fused pain intensity</h2>
+      <span class="aux" id="painAux">awaiting face</span>
+    </div>
 
-    <div class="gaugeWrap">
-      <svg viewBox="0 0 200 118" role="img" aria-labelledby="gaugeTitle">
-        <title id="gaugeTitle">Fused pain intensity on a 0 to 10 numeric rating scale</title>
-        <path class="gTrack" d="M18 104 A 82 82 0 0 1 182 104"/>
-        <path class="gFill" id="gFill" d="M18 104 A 82 82 0 0 1 182 104"/>
-        <g id="gTicks"></g>
-        <circle class="gMark" id="gMark" r="5" cx="18" cy="104" opacity="0"/>
-      </svg>
-      <div class="gaugeMid">
-        <div class="nrs" id="nrsNum">&mdash;<small>/10</small></div>
-        <div class="painLabel" id="painLabel">no reading</div>
+    <div class="nrsRow">
+      <span class="nrs" id="nrsNum">&mdash;</span>
+      <span class="over">/10</span>
+      <div class="bandBox">
+        <div class="bandName" id="painLabel">No reading</div>
+        <div class="bandSub" id="confLine">confidence &mdash;</div>
       </div>
     </div>
-    <div class="gaugeScale"><span>0 none</span><span>5 moderate</span><span>10 worst</span></div>
 
-    <div class="heroState" id="heroState">
-      <i class="pip"></i><span id="heroStateTxt">Trigger idle — pain AUs below threshold</span>
+    <div class="steps" id="steps">
+      <div class="step" data-i="0"><i></i><span>None</span></div>
+      <div class="step" data-i="1"><i></i><span>Mild</span></div>
+      <div class="step" data-i="2"><i></i><span>Moderate</span></div>
+      <div class="step" data-i="3"><i></i><span>Severe</span></div>
+      <div class="step" data-i="4"><i></i><span>Worst</span></div>
     </div>
 
-    <div class="heroGrid">
-      <div class="hCell"><div class="k">Facial (PSPI)</div><div class="v num" id="hFacial">—<small>%</small></div></div>
-      <div class="hCell"><div class="k">Autonomic</div><div class="v num" id="hAuto">—<small>%</small></div></div>
-      <div class="hCell"><div class="k">Confidence</div><div class="v num" id="hConf">—<small>%</small></div></div>
+    <div class="trig" id="trig"><i class="pip"></i><span id="trigTxt">Trigger idle — pain AUs below threshold</span></div>
+
+    <div class="cells">
+      <div class="cell">
+        <div class="k">Facial · PSPI</div>
+        <div class="v"><span id="pspiNum">&mdash;</span><small>/16</small></div>
+        <div class="n"><span id="smileWord">smile-corrected</span> <span id="corrNum">&mdash;</span>%</div>
+      </div>
+      <div class="cell">
+        <div class="k">Autonomic</div>
+        <div class="v"><span id="hAuto">&mdash;</span><small>%</small></div>
+        <div class="n" id="autoNote">needs a baseline</div>
+      </div>
+      <div class="cell">
+        <div class="k">Episode</div>
+        <div class="v"><span id="heldNum">0.0</span><small>s</small></div>
+        <div class="n" id="peakNote">peak &mdash;</div>
+      </div>
     </div>
-    <p class="note" id="heroNote">Facial evidence is required: raised heart rate alone never registers as pain.</p>
+
+    <p class="note" id="heroNote" style="margin-top:auto;padding-top:18px">Facial evidence is required: raised heart rate alone never registers as pain.</p>
   </section>
 
-  <!-- ============================== stage ============================== -->
-  <section class="card c4" aria-label="Capture">
+  <!-- =========================== face plate =========================== -->
+  <section class="c5" aria-label="Action units on the face">
+    <div class="hd"><h2>Units firing</h2><span class="aux" id="plateAux">PSPI terms</span></div>
+
+    <svg class="plate" viewBox="0 0 324 300" role="img" aria-labelledby="plateTitle">
+      <title id="plateTitle">Face map showing which pain action units are currently active</title>
+      <path d="M162 22 C 104 22 70 68 70 136 C 70 214 104 268 162 268 C 220 268 254 214 254 136 C 254 68 220 22 162 22 Z"
+            fill="#FFFFFF" stroke="currentColor" stroke-width="1.5"></path>
+
+      <g id="fm4" opacity="0.1">
+        <path d="M100 108 Q 128 95 152 106" fill="none" stroke="currentColor" stroke-width="8"></path>
+        <path d="M224 108 Q 196 95 172 106" fill="none" stroke="currentColor" stroke-width="8"></path>
+      </g>
+      <g id="fm7" opacity="0.1">
+        <rect x="94" y="124" width="60" height="19" fill="currentColor" opacity=".22"></rect>
+        <rect x="170" y="124" width="60" height="19" fill="currentColor" opacity=".22"></rect>
+        <path d="M94 134 Q 124 122 154 134" fill="none" stroke="currentColor" stroke-width="3.5"></path>
+        <path d="M170 134 Q 200 122 230 134" fill="none" stroke="currentColor" stroke-width="3.5"></path>
+      </g>
+      <g id="fm9" opacity="0.1">
+        <path d="M138 182 Q 162 171 186 182" fill="none" stroke="currentColor" stroke-width="4.5"></path>
+        <path d="M128 206 Q 162 194 196 206" fill="none" stroke="currentColor" stroke-width="6"></path>
+      </g>
+
+      <g id="fmEyes">
+        <rect x="118" y="130" width="10" height="6" fill="#14161A"></rect>
+        <rect x="196" y="130" width="10" height="6" fill="#14161A"></rect>
+      </g>
+      <path d="M162 146 L 162 180" fill="none" stroke="#C3C5C0" stroke-width="1.5"></path>
+      <path id="fmMouth" d="M130 232 Q 162 232 194 232" fill="none" stroke="#14161A" stroke-width="4"></path>
+
+      <g stroke="#C3C5C0" stroke-width="1">
+        <path d="M40 108 L 70 108"></path><path d="M40 134 L 94 134"></path>
+        <path d="M40 206 L 128 206"></path><path d="M254 232 L 290 232"></path>
+      </g>
+      <g font-family="DM Mono, monospace" font-size="9" fill="#767D86" letter-spacing="1">
+        <text x="12" y="111">AU4</text><text x="6" y="137">AU6/7</text>
+        <text x="4" y="209">AU9/10</text><text x="296" y="235">AU25</text>
+      </g>
+    </svg>
+
+    <div class="zones" id="zones"></div>
+  </section>
+
+  <!-- ============================= capture ============================= -->
+  <section class="c5" aria-label="Capture">
     <div class="hd"><h2>Capture</h2><span class="aux" id="roiAux">ROI —</span></div>
     <div class="stage" id="stage">
       <video id="video" playsinline muted></video>
@@ -446,7 +367,7 @@ main>section:nth-child(n+7){animation-delay:240ms}
       <span class="tag" id="stageTag">idle</span>
       <div class="msg" id="stageMsg" hidden></div>
     </div>
-    <div class="stageOpts">
+    <div class="opts">
       <label><input type="checkbox" id="optMesh" checked> Landmarks</label>
       <label><input type="checkbox" id="optRoi" checked> rPPG ROIs</label>
       <label><input type="checkbox" id="optBox" checked> Face box</label>
@@ -455,85 +376,64 @@ main>section:nth-child(n+7){animation-delay:240ms}
     <div class="emoRow" id="emoRow"></div>
   </section>
 
-  <!-- ============================== PSPI =============================== -->
-  <section class="card c3" aria-label="PSPI breakdown">
-    <div class="hd"><h2>PSPI</h2><span class="aux">Prkachin &amp; Solomon</span></div>
-    <div class="bigRow">
-      <span class="n num" id="pspiNum">—</span><span class="d">/ 16</span>
-      <span class="tag" id="pspiTag">raw</span>
-    </div>
-    <div class="pspiBar" id="pspiBar"></div>
-    <div class="pspiLegend" id="pspiLegend"></div>
-    <div class="bigRow" style="margin:14px 0 7px">
-      <span class="n num" id="corrNum" style="font-size:22px">—</span><span class="d">% corrected</span>
-    </div>
-    <div class="rows">
-      <div class="mrow"><label>Smile evidence</label><div class="track thin"><div class="fill" id="mSmile" style="background:var(--mild)"></div></div><output id="oSmile">—</output></div>
-      <div class="mrow"><label>Open mouth</label><div class="track thin"><div class="fill" id="mMouth" style="background:var(--resp)"></div></div><output id="oMouth">—</output></div>
-    </div>
-    <p class="note">AU6 and AU10 are shared with smiling, so raw PSPI reads high on a grin. The corrected score discounts them when AU12 and a happy expression are present.</p>
-  </section>
-
-  <!-- ============================ AU matrix ============================ -->
-  <section class="card c5" aria-label="Action units">
-    <div class="hd"><h2>Action units</h2><span class="aux" id="auAux">20 · Py-Feat</span></div>
-    <div class="auGrid" id="auGrid"></div>
-    <p class="note">Highlighted rows are the pain-relevant AUs. Values are occurrence probabilities, not FACS 0–5 intensities.</p>
-  </section>
-
-  <!-- ============================= vitals ============================== -->
-  <section class="card c4" aria-label="Vitals from rPPG">
-    <div class="hd"><h2>rPPG vitals</h2><span class="aux" id="vitAux">buffer —</span></div>
-    <div class="vitalHero">
-      <svg class="heart" id="heart" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.5-4.6-10-9.3C.4 8.4 2.2 4.5 6 4.5c2.3 0 3.6 1.3 6 3.6 2.4-2.3 3.7-3.6 6-3.6 3.8 0 5.6 3.9 4 7.2C19.5 16.4 12 21 12 21z"/></svg>
-      <div>
-        <div class="hrNum" id="hrNum">&mdash;</div>
-        <div class="hrUnit">beats / min · fused</div>
-      </div>
-      <div style="margin-left:auto;text-align:right">
-        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em">Baseline</div>
-        <div class="num" id="baseState" style="font-size:12.5px;color:var(--ink2)">not set</div>
-      </div>
-    </div>
-    <div class="tiles" id="vitTiles"></div>
-  </section>
-
   <!-- ============================ timeline ============================= -->
-  <section class="card c8" aria-label="Pain timeline">
+  <section class="c7" aria-label="Pain timeline">
     <div class="hd"><h2>Pain timeline</h2><span class="aux" id="tlAux">—</span></div>
     <div class="chart tall"><canvas id="cPain"></canvas></div>
     <div class="legend">
-      <span><i style="background:var(--sev);height:3px"></i>fused NRS</span>
-      <span><i style="background:var(--mild)"></i>PSPI corrected</span>
-      <span><i style="background:var(--muted)"></i>PSPI raw</span>
+      <span><i style="background:var(--s3);height:3px"></i>fused</span>
+      <span><i style="background:var(--s1)"></i>corrected</span>
+      <span><i style="background:var(--muted)"></i>raw PSPI</span>
       <span><i style="background:var(--auto)"></i>autonomic</span>
-      <span><i style="background:var(--accent-soft);box-shadow:inset 0 0 0 1px var(--line);height:9px;width:14px;border-radius:3px"></i>episode</span>
+      <span><i style="background:var(--rule2);height:9px;width:14px"></i>episode</span>
     </div>
   </section>
 
-  <!-- ========================= pulse + spectrum ======================== -->
-  <section class="card c4" aria-label="Blood volume pulse">
-    <div class="hd"><h2>Pulse</h2><span class="aux" id="bvpAux">—</span></div>
-    <div class="chart"><canvas id="cBvp"></canvas></div>
-    <div class="hd" style="margin:12px 0 8px"><h2>Spectrum</h2><span class="aux">0.7–3.5 Hz</span></div>
+  <!-- ============================= AU bank ============================= -->
+  <section class="c12" aria-label="Action unit bank">
+    <div class="hd">
+      <h2>Action unit bank</h2>
+      <div class="hairline"></div>
+      <span class="aux" id="auAux">20 units · 12 pain-relevant</span>
+    </div>
+    <div class="bank" id="auBank"></div>
+    <div class="bankLabels" id="auLabels"></div>
+  </section>
+
+  <!-- ====================== pulse · vitals · log ====================== -->
+  <section class="c4" aria-label="Pulse">
+    <div class="hd"><h2>Pulse · rPPG</h2><span class="aux" id="bvpAux">—</span></div>
+    <div class="hrRow">
+      <span class="hrNum" id="hrNum">&mdash;</span>
+      <span class="hrUnit">bpm · fused</span>
+      <svg class="heart" id="heart" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.5-4.6-10-9.3C.4 8.4 2.2 4.5 6 4.5c2.3 0 3.6 1.3 6 3.6 2.4-2.3 3.7-3.6 6-3.6 3.8 0 5.6 3.9 4 7.2C19.5 16.4 12 21 12 21z"/></svg>
+    </div>
+    <div class="chart" style="margin-top:14px"><canvas id="cBvp"></canvas></div>
+    <div class="hd" style="margin:18px 0 10px"><h2>Spectrum</h2><span class="aux">0.7–3.5 Hz</span></div>
     <div class="chart short"><canvas id="cSpec"></canvas></div>
   </section>
 
-  <!-- ============================ episodes ============================= -->
-  <section class="card c5" aria-label="Pain episodes">
+  <section class="c4" aria-label="Autonomic metrics">
+    <div class="hd"><h2>Autonomic</h2><span class="aux" id="vitAux">buffer —</span></div>
+    <div class="tiles" id="vitTiles"></div>
+    <div class="hd" style="margin:18px 0 0"><h2>Baseline</h2><span class="aux" id="baseState">not set</span></div>
+    <p class="note">Each feature is scored against this subject's own calm period. Absolute heart rate says nothing about pain; a rise above their rest does.</p>
+  </section>
+
+  <section class="c4" aria-label="Pain episodes">
     <div class="hd"><h2>Episodes</h2><span class="aux" id="epAux">0</span></div>
-    <div style="overflow:auto;max-height:230px">
+    <div style="overflow:auto;max-height:300px">
       <table>
         <thead><tr><th>#</th><th>Onset</th><th>Dur</th><th>Peak</th><th>Mean</th><th>Peak AUs</th></tr></thead>
-        <tbody id="tbEp"><tr><td colspan="6" class="empty">No pain episode recorded yet.</td></tr></tbody>
+        <tbody id="tbEp"><tr><td colspan="6" class="empty">No pain episode yet — the trigger has not fired.</td></tr></tbody>
       </table>
     </div>
   </section>
 
-  <!-- ========================== method bank ============================ -->
-  <section class="card c3" aria-label="rPPG method bank">
+  <!-- ======================= methods · protocol ======================= -->
+  <section class="c4" aria-label="rPPG method bank">
     <div class="hd"><h2>Method bank</h2><span class="aux">8 algorithms</span></div>
-    <div style="overflow:auto;max-height:230px">
+    <div style="overflow:auto;max-height:290px">
       <table>
         <thead><tr><th>Method</th><th>HR</th><th>SNR</th></tr></thead>
         <tbody id="tbMethods"><tr><td colspan="3" class="empty">Waiting for signal.</td></tr></tbody>
@@ -541,15 +441,14 @@ main>section:nth-child(n+7){animation-delay:240ms}
     </div>
   </section>
 
-  <!-- ============================ controls ============================= -->
-  <section class="card c4" aria-label="Protocol">
+  <section class="c8" aria-label="Protocol">
     <div class="hd"><h2>Protocol</h2><span class="aux" id="sessAux">0 samples</span></div>
     <div class="fields">
       <div class="field"><label for="engUrl">Engine</label><input id="engUrl" type="text" value="http://localhost:8000"></div>
       <div class="field"><label for="selPrimary">Waveform method</label><select id="selPrimary"></select></div>
-      <div class="field"><label for="winSec">HR window <output id="winOut">20</output> s</label><input id="winSec" type="range" min="8" max="60" step="1" value="20"></div>
-      <div class="field"><label for="auRate">AU rate <output id="auOut">6</output> /s</label><input id="auRate" type="range" min="1" max="15" step="1" value="6"></div>
-      <div class="field"><label for="trigThr">Trigger at <output id="trigOut">30</output> %</label><input id="trigThr" type="range" min="5" max="90" step="1" value="30"></div>
+      <div class="field"><label for="winSec">HR window <b><output id="winOut">20</output></b> s</label><input id="winSec" type="range" min="8" max="60" step="1" value="20"></div>
+      <div class="field"><label for="auRate">AU rate <b><output id="auOut">6</output></b> /s</label><input id="auRate" type="range" min="1" max="15" step="1" value="6"></div>
+      <div class="field"><label for="trigThr">Trigger at <b><output id="trigOut">30</output></b> %</label><input id="trigThr" type="range" min="5" max="90" step="1" value="30"></div>
     </div>
     <div class="btnRow">
       <button class="btn" id="btnBase">Calibrate baseline</button>
@@ -602,11 +501,11 @@ const ROI_COL = { forehead:"#A94F3B", lcheek:"#5C7390", rcheek:"#A8863F" };
 
 /* Pain-intensity bands. Thresholds follow the usual NRS reading of 0–10. */
 const BANDS = [
-  { max: 0.5,  name:"no pain",      v:"--calm" },
-  { max: 3.0,  name:"mild",         v:"--mild" },
-  { max: 6.0,  name:"moderate",     v:"--mod"  },
-  { max: 8.0,  name:"severe",       v:"--sev"  },
-  { max: 99,   name:"very severe",  v:"--crit" },
+  { max: 0.5,  name:"No reading",   v:"--s0" },
+  { max: 3.0,  name:"Mild",         v:"--s1" },
+  { max: 6.0,  name:"Moderate",     v:"--s2" },
+  { max: 8.0,  name:"Severe",       v:"--s3" },
+  { max: 99,   name:"Very severe",  v:"--s4" },
 ];
 const bandFor = nrs => BANDS.find(b => nrs < b.max) || BANDS[BANDS.length - 1];
 
@@ -628,10 +527,12 @@ function readColors(){
   const cs = getComputedStyle(document.documentElement);
   const g = n => cs.getPropertyValue(n).trim();
   COL = { ink:g("--ink"), ink2:g("--ink2"), muted:g("--muted"), faint:g("--faint"),
-          grid:g("--grid"), gridMajor:g("--grid-major"), line:g("--line"),
-          accent:g("--accent"), calm:g("--calm"), mild:g("--mild"), mod:g("--mod"),
-          sev:g("--sev"), crit:g("--crit"), pulse:g("--pulse"), resp:g("--resp"),
-          auto:g("--auto"), surface:g("--surface") };
+          grid:g("--grid"), line:g("--rule"), gridMajor:g("--rule2"),
+          accent:g("--accent"), pulse:g("--pulse"), resp:g("--resp"),
+          auto:g("--auto"), surface:g("--panel"),
+          s0:g("--s0"), s1:g("--s1"), s2:g("--s2"), s3:g("--s3"), s4:g("--s4") };
+  /* chart code reads these by severity name */
+  COL.calm = COL.s0; COL.mild = COL.s1; COL.mod = COL.s2; COL.sev = COL.s3; COL.crit = COL.s4;
 }
 readColors();
 
@@ -1107,78 +1008,99 @@ function setAccent(nrs){
   return band;
 }
 
-/* The gauge is a 180-degree sweep of radius 82 centred at (100, 104), so the
-   arc is pi*82 long and a value maps to a point by angle. */
-const GAUGE_R = 82, GAUGE_CX = 100, GAUGE_CY = 104;
-const GAUGE_LEN = Math.PI * GAUGE_R;
-function setGauge(nrs){
-  const fill = $("gFill"), mark = $("gMark");
-  fill.style.strokeDasharray = GAUGE_LEN;
-  if (nrs === null || nrs < 0.05){
-    fill.style.strokeDashoffset = GAUGE_LEN;
-    fill.style.opacity = 0; mark.setAttribute("opacity", 0);
-    return;
+/* The severity ramp: five solid blocks, the active one filled. Flat ink,
+   readable across a room, and it survives greyscale because the ramp
+   darkens as pain climbs rather than only changing hue. */
+function setSteps(nrs){
+  const idx = nrs === null ? -1 : BANDS.findIndex(b => nrs < b.max);
+  const on = idx < 0 ? -1 : (idx === -1 ? BANDS.length - 1 : idx);
+  for (const el of document.querySelectorAll("#steps .step")){
+    el.classList.toggle("on", Number(el.dataset.i) === on);
   }
-  const f = clamp(nrs / 10);
-  fill.style.opacity = 1;
-  fill.style.strokeDashoffset = GAUGE_LEN * (1 - f);
-  const a = Math.PI * (1 - f);
-  mark.setAttribute("cx", (GAUGE_CX + Math.cos(a) * GAUGE_R).toFixed(2));
-  mark.setAttribute("cy", (GAUGE_CY - Math.sin(a) * GAUGE_R).toFixed(2));
-  mark.setAttribute("opacity", 1);
 }
+
+/* The PSPI terms drawn on the face itself. Each group's opacity is its own
+   term's strength, so the plate reads as "which muscles are pulling". */
+const ZONES = [
+  { id:"fm4", key:"brow_lowering",       code:"AU4",    name:"Brow lowerer" },
+  { id:"fm7", key:"orbital_tightening",  code:"AU6/7",  name:"Orbital tightening" },
+  { id:"fm9", key:"levator_contraction", code:"AU9/10", name:"Levator contraction" },
+  { id:null,  key:"eye_closure",         code:"AU43",   name:"Eye closure" },
+];
+function buildZones(){
+  const box = $("zones");
+  if (box.childElementCount) return;
+  box.innerHTML = ZONES.map(z => `<div class="zone" id="z-${z.code.replace("/","")}">
+    <span class="c">${z.code}</span><span class="n">${z.name}</span>
+    <span class="v" id="zv-${z.code.replace("/","")}">—</span>
+    <div class="bar"><i id="zb-${z.code.replace("/","")}"></i></div></div>`).join("");
+}
+function renderPlate(facial){
+  buildZones();
+  const terms = (facial && facial.terms) || {};
+  for (const z of ZONES){
+    /* terms are in PSPI points; AU43 is worth 1, the rest 5 */
+    const max = z.key === "eye_closure" ? 1 : 5;
+    const v = clamp((terms[z.key] || 0) / max);
+    const key = z.code.replace("/", "");
+    if (z.id) $(z.id).setAttribute("opacity", (0.08 + v * 0.92).toFixed(2));
+    const row = $("z-" + key);
+    if (!row) continue;
+    row.classList.toggle("on", v >= 0.5);
+    $("zv-" + key).textContent = v.toFixed(2);
+    const bar = $("zb-" + key);
+    bar.style.width = v * 100 + "%";
+    bar.style.background = v >= 0.5 ? COL.accent : COL.gridMajor;
+  }
+  /* the mouth tightens as the open-mouth units rise */
+  const m = facial ? clamp(facial.mouth || 0) : 0;
+  $("fmMouth").setAttribute("d", `M130 232 Q 162 ${(232 - m * 22).toFixed(0)} 194 232`);
+}
+
 function renderPain(){
   const p = S.pain;
   if (!p) return;
   const band = setAccent(p.nrs);
 
-  setNum("nrsNum", p.nrs, v => v === null ? `&mdash;<small>/10</small>`
-                                         : `${v.toFixed(1)}<small>/10</small>`);
-  $("painLabel").textContent = p.label || band.name;
-  setGauge(p.nrs);
-
-  const asPct = v => v === null ? `&mdash;<small>%</small>` : `${Math.round(v * 100)}<small>%</small>`;
-  setNum("hFacial", p.facial.corrected, asPct);
-  setNum("hAuto", p.autonomic.ready ? p.autonomic.score : null, asPct);
-  setNum("hConf", p.confidence, asPct);
-  skel($("hAuto"), !p.autonomic.ready);
+  setNum("nrsNum", p.nrs, v => v === null ? "&mdash;" : v.toFixed(1));
+  $("painLabel").textContent = p.label ? p.label[0].toUpperCase() + p.label.slice(1) : band.name;
+  setSteps(p.nrs);
+  setNum("confLine", p.confidence, v => v === null ? "confidence &mdash;" : `confidence ${Math.round(v * 100)}%`);
 
   const armed = !!p.triggered;
-  $("hero").classList.toggle("armed", armed);
-  $("heroState").classList.toggle("armed", armed);
+  $("trig").classList.toggle("armed", armed);
   const tr = p.trigger || {};
-  $("heroStateTxt").textContent = armed
+  $("trigTxt").textContent = armed
     ? `Pain episode ${tr.episodes || 1} — held ${fmt(tr.held_s, 1)} s`
     : `Trigger idle — fires above ${pct(tr.on_threshold ?? 0.3)}% facial pain`;
+  setNum("heldNum", armed ? (tr.held_s ?? 0) : 0, v => v === null ? "0.0" : v.toFixed(1));
+  $("peakNote").innerHTML = S.liveEp.length
+    ? `peak ${fmt(Math.max(...S.liveEp.map(e => e.peak_nrs)), 1)}`
+    : "peak &mdash;";
+
+  setNum("pspiNum", p.facial.pspi, v => v === null ? "&mdash;" : v.toFixed(2));
+  setNum("corrNum", p.facial.corrected, v => v === null ? "&mdash;" : String(Math.round(v * 100)));
+  $("smileWord").textContent = p.facial.smile > 0.4 ? "smile discounted" : "smile-corrected";
+
+  const asPct = v => v === null ? "&mdash;" : String(Math.round(v * 100));
+  setNum("hAuto", p.autonomic.ready ? p.autonomic.score : null, asPct);
+  skel($("hAuto"), !p.autonomic.ready);
+  $("autoNote").textContent = p.autonomic.ready ? "vs baseline" : "needs a baseline";
+
   $("painAux").textContent = `${p.autonomic.ready ? "fused" : "facial only"} · conf ${pct(p.confidence)}%`;
   $("heroNote").textContent = p.autonomic.ready
     ? "Autonomic signs are modulating the facial score; facial evidence remains required."
-    : "Calibrate a baseline to let heart rate and HRV modulate the score.";
+    : "Facial evidence is required: raised heart rate alone never registers as pain.";
 
-  /* PSPI */
-  setNum("pspiNum", p.facial.pspi, v => v === null ? "&mdash;" : v.toFixed(2));
-  setNum("corrNum", p.facial.corrected, v => v === null ? "&mdash;" : String(Math.round(v * 100)));
-  $("pspiTag").textContent = p.facial.smile > 0.4 ? "smile discounted" : "raw";
-  const bar = $("pspiBar");
-  if (bar.childElementCount !== 4) bar.innerHTML = Object.keys(PSPI_COLS).map(k => `<i data-k="${k}"></i>`).join("");
-  const legend = $("pspiLegend");
-  if (legend.childElementCount !== 4) legend.innerHTML = Object.keys(PSPI_COLS).map(k =>
-    `<div><i style="background:${PSPI_COLS[k]}"></i>${PSPI_LABEL[k]}<b data-k="${k}">—</b></div>`).join("");
-  for (const k of Object.keys(PSPI_COLS)){
-    const v = p.facial.terms[k] || 0;
-    bar.querySelector(`i[data-k="${k}"]`).style.cssText =
-      `width:${(v / S.pspiMax) * 100}%;background:${PSPI_COLS[k]}`;
-    legend.querySelector(`b[data-k="${k}"]`).textContent = v.toFixed(2);
-  }
-  meter("mSmile", "oSmile", p.facial.smile, 1, v => pct(v) + "%");
-  meter("mMouth", "oMouth", p.facial.mouth, 1, v => pct(v) + "%");
+  renderPlate(p.facial);
 }
 function renderNoFace(){
-  setNum("nrsNum", null, () => `&mdash;<small>/10</small>`);
-  $("painLabel").textContent = "no face";
-  setGauge(null);
-  $("hero").classList.remove("armed"); $("heroState").classList.remove("armed");
-  $("heroStateTxt").textContent = "No face in frame — move into view and hold still";
+  setNum("nrsNum", null, () => "&mdash;");
+  $("painLabel").textContent = "No face";
+  setSteps(null);
+  $("trig").classList.remove("armed");
+  $("trigTxt").textContent = "No face in frame — move into view and hold still";
+  renderPlate(null);
   setAccent(0);
 }
 function meter(mId, oId, v, max, f){
@@ -1188,34 +1110,32 @@ function meter(mId, oId, v, max, f){
 }
 
 /* --------------------------------------------------------- AU matrix --- */
+/* The bank is one column per action unit, full width. Pain-relevant units
+   take the band colour when they cross threshold; the rest stay grey, so a
+   pain pattern is visible as a shape rather than needing to be read. */
 function buildAuGrid(){
-  const g = $("auGrid");
   const order = S.detectedAus.length ? S.detectedAus : Object.keys(S.auNames);
-  g.innerHTML = order.map(code => {
-    const isPain = S.painAus.includes(code);
-    return `<div class="aurow${isPain ? " isPain" : ""}" id="row-${code}" title="${S.auNames[code] || code}">
-      <span class="code">${code.replace("AU", "AU ")}</span>
-      <div class="track thin"><div class="fill" id="f-${code}"></div></div>
-      <output id="o-${code}">—</output></div>`;
-  }).join("");
-  $("auAux").textContent = `${order.length} · ${S.painAus.length} pain-relevant`;
+  if (!order.length) return;
+  const bank = $("auBank"), labels = $("auLabels");
+  if (bank.childElementCount === order.length) return;
+  bank.innerHTML = order.map(c =>
+    `<div class="bankCol" title="${S.auNames[c] || c}"><i id="f-${c}"></i></div>`).join("");
+  labels.innerHTML = order.map(c =>
+    `<span id="o-${c}">${c.replace("AU", "")}</span>`).join("");
+  $("auAux").textContent = `${order.length} units · ${S.painAus.length} pain-relevant`;
 }
 function renderAus(){
   const aus = (S.face && S.face.aus) || {};
   for (const [code, v] of Object.entries(aus)){
-    const f = $("f-" + code), o = $("o-" + code), row = $("row-" + code);
-    if (!f) continue;
-    f.style.width = clamp(v) * 100 + "%";
+    const bar = $("f-" + code), lab = $("o-" + code);
+    if (!bar) continue;
     const pain = S.painAus.includes(code);
-    f.style.background = v >= 0.5 && pain ? COL.sev : v >= 0.5 ? COL.ink2 : COL.muted;
-    o.textContent = v.toFixed(2);
-    if (row) row.classList.toggle("live", v >= 0.5 && pain);
+    const hot = v >= 0.5 && pain;
+    bar.style.height = Math.max(clamp(v) * 100, 1.5) + "%";
+    bar.style.background = hot ? COL.accent : (pain ? COL.gridMajor : COL.grid);
+    if (lab) lab.classList.toggle("hot", hot);
   }
 }
-/* Built once and updated in place. Rebuilding this row's innerHTML at the
-   6 Hz action-unit rate restarted every CSS transition on each frame, so the
-   values could never animate and the browser re-laid-out the row 6x a second
-   for a handful of digits. */
 function renderEmotions(){
   const e = (S.face && S.face.emotions) || {};
   const keys = Object.keys(e);
@@ -1603,17 +1523,8 @@ $("btnRun").onclick = () => S.running ? stop() : start();
 
 /* --------------------------------------------------------------- boot -- */
 (async function boot(){
-  const ticks = $("gTicks");
-  /* gauge ticks every 2 NRS points across the 180° sweep */
-  for (let i = 0; i <= 10; i += 2){
-    const a = Math.PI * (1 - i / 10), r0 = GAUGE_R + 9, r1 = GAUGE_R + 14;
-    const x0 = GAUGE_CX + Math.cos(a) * r0, y0 = GAUGE_CY - Math.sin(a) * r0;
-    const x1 = GAUGE_CX + Math.cos(a) * r1, y1 = GAUGE_CY - Math.sin(a) * r1;
-    ticks.insertAdjacentHTML("beforeend",
-      `<line class="gTick" x1="${x0.toFixed(1)}" y1="${y0.toFixed(1)}" x2="${x1.toFixed(1)}" y2="${y1.toFixed(1)}"/>`);
-  }
-  setGauge(null);
-
+  buildZones();
+  setSteps(null);
   renderSession(); renderBaseline(); renderEpisodes(); renderMethods(); drawAll();
 
   /* probe the engine so the header is honest before anyone presses Start */

@@ -35,3 +35,6 @@ painface-session.*
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
+
+# Design-canvas staging (concepts live in the Artifact, not the repo)
+.design-canvas/
