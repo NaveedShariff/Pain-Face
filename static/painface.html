@@ -147,7 +147,19 @@ section:nth-child(n+4){animation-delay:150ms}
 .note{font-size:11.5px;color:var(--muted);margin:16px 0 0;line-height:1.6}
 
 /* ============================= face plate ============================= */
+.plateWrap{position:relative}
 .plate{width:100%;max-width:392px;height:auto;display:block;margin:4px auto 0}
+/* The live face sits in the plate's empty top-right corner: the schematic
+   says which units are firing, the inset shows them on the actual face. */
+.liveInset{position:absolute;top:0;right:0;width:156px;border:1px solid var(--rule);
+  background:var(--raise);overflow:hidden}
+.liveInset canvas{display:block;width:100%;height:117px;transform:scaleX(-1)}
+.liveInset .cap{display:flex;align-items:center;gap:6px;padding:5px 7px;
+  border-top:1px solid var(--rule);background:var(--panel);
+  font:400 8.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.liveInset .cap i{width:4px;height:4px;background:var(--rule2);flex:none;transition:background var(--dur)}
+.liveInset.live .cap i{background:var(--s3)}
+.liveInset.live .cap{color:var(--ink2)}
 .zones{margin-top:18px;border-top:1px solid var(--rule)}
 .zone{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--rule)}
 .zone .c{font:500 10.5px var(--mono);letter-spacing:.04em;width:60px;color:var(--muted);transition:color var(--dur)}
@@ -318,6 +330,11 @@ footer em{font-style:normal;font-weight:800;color:var(--ink);letter-spacing:-.02
   <section class="c5" aria-label="Action units on the face">
     <div class="hd"><h2>Units firing</h2><span class="aux" id="plateAux">PSPI terms</span></div>
 
+    <div class="plateWrap">
+    <div class="liveInset" id="liveInset" hidden>
+      <canvas id="auCam" width="312" height="234"></canvas>
+      <div class="cap"><i></i><span id="auCamCap">camera idle</span></div>
+    </div>
     <svg class="plate" viewBox="0 0 324 300" role="img" aria-labelledby="plateTitle">
       <title id="plateTitle">Face map showing which pain action units are currently active</title>
       <path d="M162 22 C 104 22 70 68 70 136 C 70 214 104 268 162 268 C 220 268 254 214 254 136 C 254 68 220 22 162 22 Z"
@@ -354,6 +371,7 @@ footer em{font-style:normal;font-weight:800;color:var(--ink);letter-spacing:-.02
         <text x="4" y="209">AU9/10</text><text x="296" y="235">AU25</text>
       </g>
     </svg>
+    </div>
 
     <div class="zones" id="zones"></div>
   </section>
@@ -782,6 +800,7 @@ function captureFrame(t){
   }
 
   drawOverlay(polys, vw, vh);
+  drawAuInset();
 }
 
 /* flush the colour trace once a second — one JSON message, not 30 */
@@ -835,6 +854,85 @@ function drawOverlay(polys, vw, vh){
     c.strokeRect(Math.min(x0, x1), Math.min(y0, y1), Math.abs(x1 - x0), Math.abs(y1 - y0));
     c.setLineDash([]);
   }
+}
+
+/* ---------------------------------------------------- live AU overlay --
+   The 68 landmarks Py-Feat returns are grouped into the regions the PSPI
+   terms describe, then stroked over a crop of the real face. Landmarks
+   arrive at the action-unit rate (a few times a second) while the video
+   runs at 30, so the marks follow the face a fraction behind it. */
+const AU_GROUPS = [
+  { term:"brow_lowering",       max:5, closed:false, w:3.4, sets:[[17,18,19,20,21],[22,23,24,25,26]] },
+  { term:"orbital_tightening",  max:5, closed:true,  w:2.4, sets:[[36,37,38,39,40,41],[42,43,44,45,46,47]] },
+  { term:"levator_contraction", max:5, closed:false, w:2.8, sets:[[31,32,33,34,35],[48,49,50,51,52,53,54]] },
+  { term:"eye_closure",         max:1, closed:false, w:2.2, sets:[[37,38,43,44]] },
+];
+const MOUTH_SET = [48,49,50,51,52,53,54,55,56,57,58,59];
+
+function drawAuInset(){
+  const inset = $("liveInset"), cv = $("auCam");
+  if (!cv) return;
+  const c = cv.getContext("2d");
+  const f = S.face, [vw, vh] = S.videoDims;
+  const haveFrame = S.source === "camera" && vw && vh && work.width;
+
+  if (!haveFrame){
+    c.clearRect(0, 0, cv.width, cv.height);
+    inset.classList.remove("live");
+    $("auCamCap").textContent = S.source === "sim" ? "camera only" : "camera idle";
+    return;
+  }
+
+  /* frame tightly on the face so the marks are legible at this size */
+  let sx = 0, sy = 0, sw = vw, sh = vh;
+  if (f && f.box){
+    const k = vw / SEND_W;                       // sent frame -> source pixels
+    const [bx, by, bw, bh] = f.box.map(v => v * k);
+    const pad = bw * 0.42;
+    sw = Math.min(bw + pad * 2, vw);
+    sh = sw * (cv.height / cv.width);
+    sx = Math.max(0, Math.min(bx - pad, vw - sw));
+    sy = Math.max(0, Math.min(by + bh * 0.5 - sh / 2, Math.max(vh - sh, 0)));
+  } else {
+    sh = Math.min(vh, vw * (cv.height / cv.width));
+    sy = (vh - sh) / 2;
+  }
+  c.drawImage(work, sx, sy, sw, sh, 0, 0, cv.width, cv.height);
+
+  if (!f || !f.landmarks){
+    inset.classList.remove("live");
+    $("auCamCap").textContent = "no face";
+    return;
+  }
+
+  const terms = (S.pain && S.pain.facial && S.pain.facial.terms) || {};
+  const k = vw / SEND_W, kx = cv.width / sw, ky = cv.height / sh;
+  const P = i => {
+    const lm = f.landmarks[i];
+    return lm ? [(lm[0] * k - sx) * kx, (lm[1] * k - sy) * ky] : null;
+  };
+  const stroke = (ids, closed, width, alpha) => {
+    const pts = ids.map(P).filter(Boolean);
+    if (pts.length < 2) return;
+    c.beginPath();
+    pts.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y));
+    if (closed) c.closePath();
+    c.globalAlpha = alpha; c.lineWidth = width; c.lineJoin = "round"; c.lineCap = "round";
+    c.strokeStyle = COL.accent; c.stroke(); c.globalAlpha = 1;
+  };
+
+  let firing = 0;
+  for (const g of AU_GROUPS){
+    const v = clamp((terms[g.term] || 0) / g.max);
+    if (v >= 0.5) firing++;
+    const alpha = 0.12 + v * 0.88;
+    for (const set of g.sets) stroke(set, g.closed, g.w, alpha);
+  }
+  const mouth = S.pain && S.pain.facial ? clamp(S.pain.facial.mouth || 0) : 0;
+  stroke(MOUTH_SET, true, 2.4, 0.12 + mouth * 0.7);
+
+  inset.classList.toggle("live", firing > 0);
+  $("auCamCap").textContent = firing ? `${firing} unit${firing > 1 ? "s" : ""} firing` : "tracking";
 }
 
 /* ---------------------------------------------------------- simulator -- */
@@ -1356,6 +1454,7 @@ for (const b of document.querySelectorAll(".seg button")){
     S.source = b.dataset.src;
     document.querySelectorAll(".seg button").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
     stage.classList.toggle("nomirror", S.source === "sim");
+    $("liveInset").hidden = S.source !== "camera";
     $("stageTag").textContent = S.source === "sim" ? "scripted subject" : "idle";
     stageMsg(S.source === "sim"
       ? "The simulator scripts a pain episode with the canonical AU pattern and a matching autonomic response — the engine scores it through the same pipeline as a live face."
@@ -1525,6 +1624,7 @@ $("btnRun").onclick = () => S.running ? stop() : start();
 (async function boot(){
   buildZones();
   setSteps(null);
+  $("liveInset").hidden = S.source !== "camera";
   renderSession(); renderBaseline(); renderEpisodes(); renderMethods(); drawAll();
 
   /* probe the engine so the header is honest before anyone presses Start */
