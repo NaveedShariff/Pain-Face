@@ -1,0 +1,1093 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>rPPG Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Public+Sans:wght@400;500;600;700&family=Sofia+Sans+Condensed:wght@300;500;700;800&display=swap">
+<style>
+/* Layout: an instrument panel on ECG chart paper — live stage + vitals up top, signal scopes below, method bank and HRV at the bench. */
+:root{
+  --bg:#FBF8F8; --panel:#FFFFFF; --ink:#1A1D26; --muted:#666B78; --line:#EADFE0; --grid:#F3E3E4; --grid-major:#E9C9CB;
+  --pulse:#C0263B; --pulse-soft:#F8DDE1; --resp:#16707A; --resp-soft:#D6EEF0; --focus:#2B59C3;
+  --good:#2E7D4F; --fair:#B7791F; --poor:#B42318;
+  --r:#D1495B; --g:#3A9A5B; --b:#3D6FB6;
+  --m1:#6B7280; --m2:#8E44AD; --m3:#B7791F; --m4:#2B59C3; --m5:#16707A; --m6:#C0263B; --m7:#2E7D4F; --m8:#D2691E;
+  --display:"Sofia Sans Condensed","Arial Narrow",system-ui,sans-serif;
+  --body:"Public Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+  --radius:10px;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#11141B; --panel:#171B24; --ink:#E9E7E4; --muted:#9299A8; --line:#262C39; --grid:#1D222D; --grid-major:#2A303D;
+  --pulse:#FF5C70; --pulse-soft:#3A1D25; --resp:#4FC3CF; --resp-soft:#12303A; --focus:#7FA2FF;
+  --good:#5CC28A; --fair:#E0A84A; --poor:#FF6B5E;
+  --r:#FF6B7A; --g:#5CC28A; --b:#6FA0F0;
+  --m1:#A0A7B5; --m2:#C08BE0; --m3:#E0A84A; --m4:#7FA2FF; --m5:#4FC3CF; --m6:#FF5C70; --m7:#5CC28A; --m8:#F09A5A;
+  color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#11141B; --panel:#171B24; --ink:#E9E7E4; --muted:#9299A8; --line:#262C39; --grid:#1D222D; --grid-major:#2A303D;
+  --pulse:#FF5C70; --pulse-soft:#3A1D25; --resp:#4FC3CF; --resp-soft:#12303A; --focus:#7FA2FF;
+  --good:#5CC28A; --fair:#E0A84A; --poor:#FF6B5E;
+  --r:#FF6B7A; --g:#5CC28A; --b:#6FA0F0;
+  --m1:#A0A7B5; --m2:#C08BE0; --m3:#E0A84A; --m4:#7FA2FF; --m5:#4FC3CF; --m6:#FF5C70; --m7:#5CC28A; --m8:#F09A5A;
+  color-scheme:dark }
+
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--body);-webkit-font-smoothing:antialiased;
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:24px 24px}
+button,select,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.wrap{max-width:1440px;margin:0 auto;padding-inline:16px;padding-block:0 32px}
+
+/* top bar */
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);
+  border-bottom:1px solid var(--line);margin-inline:-16px;padding:10px 16px;display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center}
+.brand{display:flex;align-items:baseline;gap:10px;margin-right:auto}
+.brand h1{font:800 26px/1 var(--display);letter-spacing:.01em;margin:0}
+.brand h1 span{color:var(--pulse)}
+.brand small{color:var(--muted);font-size:12px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:999px;background:var(--panel);padding:3px}
+.seg button{border:0;background:none;padding:6px 14px;border-radius:999px;cursor:pointer;font-weight:600;font-size:13px;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.btn{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:7px 14px;font-weight:600;cursor:pointer;font-size:13px}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--pulse);border-color:var(--pulse);color:#fff}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:6px;font:500 12px/1 var(--mono);border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:6px 10px;white-space:nowrap}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.dot.good{background:var(--good)} .dot.fair{background:var(--fair)} .dot.poor{background:var(--poor)}
+
+/* grid */
+.grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:14px;margin-top:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:14px;min-width:0}
+.c5{grid-column:span 5}.c7{grid-column:span 7}.c8{grid-column:span 8}.c4{grid-column:span 4}.c6{grid-column:span 6}.c12{grid-column:span 12}
+@media (max-width:1100px){.c5,.c7,.c8,.c4,.c6{grid-column:span 12}}
+.hd{display:flex;align-items:baseline;gap:10px;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap}
+.hd h2{font:700 13px/1.2 var(--body);text-transform:uppercase;letter-spacing:.08em;margin:0;color:var(--muted)}
+.hd .aux{font:12px var(--mono);color:var(--muted)}
+.hd select{border:1px solid var(--line);background:var(--panel);border-radius:6px;padding:3px 6px;font-size:12px}
+
+/* stage */
+.stage{position:relative;aspect-ratio:4/3;max-width:100%;border-radius:8px;overflow:hidden;background:#0c0e12}
+.stage video,.stage canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.stage.mirror video,.stage.mirror canvas{transform:scaleX(-1)}
+.stage .msg{position:absolute;inset:auto 12px 12px 12px;background:rgba(12,14,18,.78);color:#F2F2F2;border-radius:8px;padding:10px 12px;font-size:13px}
+.stage .tag{position:absolute;top:10px;left:10px;background:rgba(12,14,18,.7);color:#F2F2F2;font:500 11px/1 var(--mono);padding:6px 8px;border-radius:6px}
+.meters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:12px}
+.meter label{display:block;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.meter .track{height:6px;border-radius:3px;background:var(--grid);overflow:hidden;margin-top:4px}
+.meter .fill{height:100%;width:0;background:var(--ink);transition:width .3s}
+.meter output{font:500 12px var(--mono)}
+.roi-legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px;font-size:12px;color:var(--muted)}
+.roi-legend label{display:flex;align-items:center;gap:5px;cursor:pointer}
+
+/* vitals */
+.vitals{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:14px}
+@media (max-width:640px){.vitals{grid-template-columns:1fr}}
+.hr-block{position:relative;display:flex;flex-direction:column;justify-content:space-between;min-height:260px;overflow:hidden}
+.hr-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.hr-num{font:800 clamp(96px,11vw,150px)/.85 var(--display);letter-spacing:-.02em;color:var(--pulse);font-variant-numeric:tabular-nums;margin-top:8px}
+.hr-unit{font:500 22px/1 var(--display);color:var(--muted);letter-spacing:.06em}
+.heart{width:44px;height:44px;flex:none}
+.heart path{fill:var(--pulse);transform-origin:50% 55%;transition:transform .12s}
+.heart.beat path{transform:scale(1.22)}
+@media (prefers-reduced-motion:reduce){.heart path{transition:none}.heart.beat path{transform:none}}
+.hr-sub{display:flex;gap:16px;flex-wrap:wrap;font:12px var(--mono);color:var(--muted)}
+.hr-sub b{color:var(--ink);font-weight:600}
+.qual{display:inline-flex;align-items:center;gap:6px;font:600 12px var(--body);padding:4px 10px;border-radius:999px;background:var(--grid)}
+.tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.tile{border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:var(--panel);min-width:0;display:flex;flex-direction:column;justify-content:space-between;gap:6px}
+.tile .k{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.tile .v{font:700 clamp(30px,3.2vw,44px)/1 var(--display);font-variant-numeric:tabular-nums;margin-top:2px}
+.tile .v small{font:500 13px var(--body);color:var(--muted);margin-left:4px}
+.tile .n{font-size:11px;color:var(--muted)}
+.tile.resp .v{color:var(--resp)}
+.warm{margin-top:10px;height:4px;background:var(--grid);border-radius:2px;overflow:hidden}
+.warm i{display:block;height:100%;width:0;background:var(--pulse);transition:width .4s}
+
+/* charts */
+.chart{position:relative;width:100%;height:170px}
+.chart.tall{height:210px}.chart.short{height:130px}
+.chart canvas{position:absolute;inset:0;width:100%;height:100%}
+.legend{display:flex;flex-wrap:wrap;gap:4px 12px;font:11px var(--mono);color:var(--muted);margin-top:8px}
+.legend span{display:inline-flex;align-items:center;gap:5px;cursor:pointer;user-select:none}
+.legend span.off{opacity:.35}
+.legend i{width:10px;height:3px;border-radius:2px;display:inline-block}
+
+/* table */
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{font:600 11px var(--body);text-transform:uppercase;letter-spacing:.06em;color:var(--muted);text-align:right;padding:6px 8px;border-bottom:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left}
+td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+tr.sel td{background:var(--pulse-soft)}
+tr[data-m]{cursor:pointer}
+td .sw{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:8px;vertical-align:1px}
+td .cite{color:var(--muted);font:11px var(--body);margin-left:6px}
+.bar-snr{display:inline-block;height:6px;border-radius:3px;background:var(--ink);vertical-align:1px;margin-left:6px;opacity:.7}
+
+/* hrv */
+.hrv{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) minmax(0,1fr);gap:14px}
+@media (max-width:760px){.hrv{grid-template-columns:1fr}}
+.kv{display:grid;grid-template-columns:auto auto;gap:3px 12px;font-size:12.5px;align-content:start}
+.kv dt{color:var(--muted)} .kv dd{margin:0;text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+.note{font-size:12px;color:var(--muted);margin:8px 0 0;max-width:70ch}
+
+/* forms */
+.form{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+.field label{display:block;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
+.field select,.field input[type=text],.field input[type=number]{width:100%;border:1px solid var(--line);background:var(--panel);border-radius:6px;padding:6px 8px}
+.field input[type=range]{width:100%;accent-color:var(--pulse)}
+.check{display:flex;align-items:center;gap:8px;font-size:13px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+pre.out{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px;font:12px/1.5 var(--mono);max-height:220px;overflow:auto;white-space:pre-wrap;margin:10px 0 0}
+
+footer.refs{margin-top:18px;color:var(--muted);font-size:12px;line-height:1.6}
+footer.refs h2{font:700 13px var(--body);text-transform:uppercase;letter-spacing:.08em;margin:0 0 6px}
+footer.refs ol{margin:0;padding-left:18px;columns:2 320px;column-gap:28px}
+footer.refs .disc{border-left:3px solid var(--pulse);padding:6px 10px;margin:12px 0 0;color:var(--ink);max-width:90ch}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="bar">
+  <div class="brand"><h1>rPPG<span>·</span>Lab</h1><small>remote photoplethysmography workbench</small></div>
+  <div class="seg" role="group" aria-label="Signal source">
+    <button id="srcCam" data-src="camera" aria-pressed="false">Camera</button>
+    <button id="srcVid" data-src="video" aria-pressed="false">Video file</button>
+    <button id="srcSim" data-src="sim" aria-pressed="true">Simulator</button>
+  </div>
+  <input id="fileIn" type="file" accept="video/*" class="sr">
+  <button id="btnRun" class="btn primary">Start</button>
+  <div class="chips">
+    <span class="chip" id="chipFace"><i class="dot"></i><span>face —</span></span>
+    <span class="chip" id="chipFps"><i class="dot"></i><span>— fps</span></span>
+    <span class="chip" id="chipEngine" title="Python engine (server.py)"><i class="dot"></i><span>python off</span></span>
+  </div>
+</header>
+
+<main class="grid">
+  <!-- live stage -->
+  <section class="card c5" aria-label="Live capture">
+    <div class="hd"><h2>Capture</h2><span class="aux" id="roiInfo">ROI —</span></div>
+    <div class="stage" id="stage">
+      <video id="video" playsinline muted></video>
+      <canvas id="overlay"></canvas>
+      <span class="tag" id="stageTag">Simulated subject</span>
+      <div class="msg" id="stageMsg" hidden></div>
+    </div>
+    <div class="roi-legend" aria-label="Regions of interest">
+      <label><input type="checkbox" id="roiF" checked> Forehead</label>
+      <label><input type="checkbox" id="roiL" checked> Left cheek</label>
+      <label><input type="checkbox" id="roiR" checked> Right cheek</label>
+      <label><input type="checkbox" id="skinOn" checked> YCrCb skin mask</label>
+      <label><input type="checkbox" id="meshOn" checked> Show mesh</label>
+    </div>
+    <div class="meters">
+      <div class="meter"><label>Illumination</label><div class="track"><div class="fill" id="mLight"></div></div><output id="oLight">—</output></div>
+      <div class="meter"><label>Head motion</label><div class="track"><div class="fill" id="mMotion"></div></div><output id="oMotion">—</output></div>
+      <div class="meter"><label>Signal quality</label><div class="track"><div class="fill" id="mSQI"></div></div><output id="oSQI">—</output></div>
+    </div>
+  </section>
+
+  <!-- vitals -->
+  <section class="c7 vitals" aria-label="Vital signs">
+    <div class="card hr-block">
+      <div class="hr-top">
+        <div>
+          <div class="hd" style="margin:0"><h2>Heart rate</h2></div>
+          <span class="qual" id="qual"><i class="dot"></i><span>waiting</span></span>
+        </div>
+        <svg class="heart" id="heart" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.5-4.6-10-9.3C.4 8.4 2.2 4.5 6 4.5c2.3 0 3.6 1.3 6 3.6 2.4-2.3 3.7-3.6 6-3.6 3.8 0 5.6 3.9 4 7.2C19.5 16.4 12 21 12 21z"/></svg>
+      </div>
+      <div>
+        <div class="hr-num" id="hrNum">--</div>
+        <div class="hr-unit">BEATS / MIN · <span id="hrSrc">FUSED</span></div>
+      </div>
+      <div>
+        <div class="hr-sub">
+          <span>SNR <b id="hrSnr">—</b> dB</span>
+          <span>IBI-HR <b id="hrIbi">—</b></span>
+          <span>spread <b id="hrSpread">—</b></span>
+          <span id="gtWrap" hidden>truth <b id="hrTruth">—</b> · err <b id="hrErr">—</b></span>
+        </div>
+        <div class="warm" title="Buffer fill"><i id="warm"></i></div>
+      </div>
+    </div>
+    <div class="tiles">
+      <div class="tile resp"><div class="k">Respiration</div><div class="v"><span id="vResp">—</span><small>br/min</small></div><div class="n" id="nResp">RIIV · RIAV · RSA fused</div></div>
+      <div class="tile"><div class="k">HRV · RMSSD</div><div class="v"><span id="vRmssd">—</span><small>ms</small></div><div class="n" id="nHrv">needs ≥ 30 s</div></div>
+      <div class="tile"><div class="k">HRV · SDNN</div><div class="v"><span id="vSdnn">—</span><small>ms</small></div><div class="n">Task Force 1996</div></div>
+      <div class="tile"><div class="k">Stress index</div><div class="v"><span id="vSI">—</span><small>Baevsky</small></div><div class="n">AMo / (2·Mo·MxDMn)</div></div>
+      <div class="tile"><div class="k">Perfusion index</div><div class="v"><span id="vPI">—</span><small>%</small></div><div class="n">green AC / DC</div></div>
+      <div class="tile"><div class="k">SpO₂ ratio R</div><div class="v"><span id="vRoR">—</span></div><div class="n">(AC/DC)ᵣ / (AC/DC)ᵦ · uncalibrated</div></div>
+    </div>
+  </section>
+
+  <!-- BVP -->
+  <section class="card c8" aria-label="Blood volume pulse">
+    <div class="hd"><h2>Blood volume pulse</h2>
+      <div class="row"><span class="aux" id="bvpAux">—</span>
+        <select id="selPrimary" aria-label="Waveform method"></select></div></div>
+    <div class="chart tall"><canvas id="cBvp"></canvas></div>
+  </section>
+
+  <!-- spectrum -->
+  <section class="card c4" aria-label="Power spectrum">
+    <div class="hd"><h2>Spectrum</h2><span class="aux" id="specAux">0.7–3.5 Hz</span></div>
+    <div class="chart tall"><canvas id="cSpec"></canvas></div>
+  </section>
+
+  <!-- trend -->
+  <section class="card c6" aria-label="Heart rate trend">
+    <div class="hd"><h2>HR trend by method</h2><span class="aux">last 2 min</span></div>
+    <div class="chart"><canvas id="cTrend"></canvas></div>
+    <div class="legend" id="legend"></div>
+  </section>
+
+  <!-- raw RGB -->
+  <section class="card c6" aria-label="Raw colour traces">
+    <div class="hd"><h2>Raw skin traces</h2><span class="aux">mean-normalized R · G · B, last 15 s</span></div>
+    <div class="chart"><canvas id="cRgb"></canvas></div>
+  </section>
+
+  <!-- method bank -->
+  <section class="card c5" aria-label="Method bank">
+    <div class="hd"><h2>Method bank</h2><span class="aux">click a row to plot it</span></div>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Method</th><th>HR</th><th>SNR dB</th><th>py HR</th></tr></thead>
+      <tbody id="tbMethods"></tbody>
+    </table></div>
+    <p class="note">Fused HR is the SNR-weighted median across all methods. The <em>py</em> column fills in when the Python engine is running and uses Tarvainen detrending with scipy Butterworth filters.</p>
+  </section>
+
+  <!-- HRV -->
+  <section class="card c7" aria-label="Heart rate variability">
+    <div class="hd"><h2>Heart rate variability</h2><span class="aux" id="hrvAux">window 60 s</span></div>
+    <div class="hrv">
+      <div><div class="chart short"><canvas id="cTacho"></canvas></div><p class="note" style="margin-top:4px">Tachogram · inter-beat intervals (ms)</p></div>
+      <div><div class="chart short"><canvas id="cPoinc"></canvas></div><p class="note" style="margin-top:4px">Poincaré · IBIₙ vs IBIₙ₊₁</p></div>
+      <dl class="kv" id="hrvKv"></dl>
+    </div>
+    <p class="note">Camera HRV is sensitive to frame-rate jitter and compression. Treat values from windows under 60 s, or with an artefact rate above 10%, as exploratory.</p>
+  </section>
+
+  <!-- Python engine -->
+  <section class="card c6" aria-label="Python engine">
+    <div class="hd"><h2>Python engine</h2><span class="aux" id="engAux">server.py · FastAPI</span></div>
+    <div class="form">
+      <div class="field"><label for="engUrl">Engine URL</label><input id="engUrl" type="text" value="http://localhost:8000"></div>
+      <div class="field"><label for="deepModel">Deep model (open-rppg)</label><select id="deepModel"><option value="">None, classical only</option></select></div>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <button class="btn" id="btnConnect">Connect</button>
+      <button class="btn" id="btnClip" disabled>Record 20 s clip → analyze</button>
+      <button class="btn" id="btnUpload" disabled>Analyze a video file</button>
+      <input id="fileSrv" type="file" accept="video/*" class="sr">
+    </div>
+    <pre class="out" id="engOut">Start the engine with:  python server.py
+Then open http://localhost:8000 . The browser streams its RGB traces every 2 s, and this panel shows the server's full analysis (ICA, OMIT, Welch spectra, LF/HF).</pre>
+  </section>
+
+  <!-- settings + export -->
+  <section class="card c6" aria-label="Settings and export">
+    <div class="hd"><h2>Protocol &amp; export</h2><span class="aux" id="sessAux">0 samples</span></div>
+    <div class="form">
+      <div class="field"><label for="winSec">HR window <output id="winOut">10</output> s</label><input id="winSec" type="range" min="5" max="30" value="10"></div>
+      <div class="field"><label for="hrvSec">HRV window <output id="hrvOut">60</output> s</label><input id="hrvSec" type="range" min="30" max="120" step="10" value="60"></div>
+      <div class="field"><label for="dispSrc">Headline value</label><select id="dispSrc"><option value="FUSED">Fused (all methods)</option></select></div>
+      <div class="field"><label for="fsSel">Resample rate</label><select id="fsSel"><option>30</option><option>25</option><option>60</option></select></div>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <label class="check"><input type="checkbox" id="lockExp"> Lock exposure &amp; white balance</label>
+      <label class="check"><input type="checkbox" id="simArt" checked> Simulator motion artefacts</label>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <button class="btn" id="btnCsv">Download trace CSV</button>
+      <button class="btn" id="btnJson">Download report JSON</button>
+      <button class="btn" id="btnCopy">Copy summary</button>
+      <button class="btn" id="btnReset">Clear session</button>
+    </div>
+    <p class="note" id="exportNote">CSV columns: t, R, G, B (combined ROI), per-ROI RGB, face flag. JSON holds settings, per-tick estimates for every method, and HRV.</p>
+  </section>
+</main>
+
+<footer class="refs">
+  <h2>Methods</h2>
+  <ol>
+    <li>GREEN: Verkruysse, Svaasand &amp; Nelson. Remote plethysmographic imaging using ambient light. Opt. Express, 2008.</li>
+    <li>ICA: Poh, McDuff &amp; Picard. Non-contact, automated cardiac pulse measurements using video imaging and blind source separation. Opt. Express, 2010.</li>
+    <li>PCA: Lewandowska et al. Measuring pulse rate with a webcam. FedCSIS, 2011.</li>
+    <li>CHROM: de Haan &amp; Jeanne. Robust pulse rate from chrominance-based rPPG. IEEE TBME, 2013.</li>
+    <li>PBV: de Haan &amp; van Leest. Improved motion robustness of remote-PPG by using the blood volume pulse signature. Physiol. Meas., 2014.</li>
+    <li>POS: Wang, den Brinker, Stuijk &amp; de Haan. Algorithmic principles of remote PPG. IEEE TBME, 2017.</li>
+    <li>LGI: Pilz et al. Local group invariance for heart rate estimation from face videos. CVPR-W, 2018.</li>
+    <li>OMIT: Casado &amp; López. Face2PPG: an unsupervised pipeline for blood volume pulse extraction from faces. 2023.</li>
+    <li>Detrending: Tarvainen, Ranta-aho &amp; Karjalainen. An advanced detrending method with application to HRV analysis. IEEE TBME, 2002.</li>
+    <li>Face mesh: MediaPipe Face Landmarker (Apache-2.0). Deep models: open-rppg (FacePhys, PhysMamba, PhysFormer, TS-CAN, EfficientPhys, PhysNet).</li>
+  </ol>
+  <p class="disc">Research tool only. It is not a medical device and its readings must not be used for diagnosis or treatment. The SpO₂ ratio is an uncalibrated index, not an oxygen saturation.</p>
+</footer>
+</div>
+
+<script>
+"use strict";
+// ==DSP==
+const DSP = (() => {
+  const EPS = 1e-9;
+  const mean = a => { let s = 0; for (const v of a) s += v; return s / a.length; };
+  const std = a => { const m = mean(a); let s = 0; for (const v of a) s += (v - m) ** 2; return Math.sqrt(s / a.length); };
+  const median = a => { const s = [...a].sort((x, y) => x - y); const n = s.length; return n ? (n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2) : NaN; };
+  const hann = n => Float64Array.from({ length: n }, (_, i) => 0.5 - 0.5 * Math.cos(2 * Math.PI * i / (n - 1)));
+
+  function resample(t, ch, fs) {           // ch: array of 3 arrays
+    const out = [[], [], []]; const tu = [];
+    let j = 0;
+    for (let x = t[0]; x <= t[t.length - 1]; x += 1 / fs) {
+      while (j < t.length - 2 && t[j + 1] < x) j++;
+      const dt = t[j + 1] - t[j] || 1; const w = Math.min(Math.max((x - t[j]) / dt, 0), 1);
+      tu.push(x); for (let c = 0; c < 3; c++) out[c].push(ch[c][j] * (1 - w) + ch[c][j + 1] * w);
+    }
+    return { t: tu, x: out.map(a => Float64Array.from(a)) };
+  }
+
+  // Smoothness-priors detrending (Tarvainen 2002) via banded LDLᵀ — O(N)
+  function detrend(z, lam = 100) {
+    const n = z.length; if (n < 5) { const m = mean(z); return z.map(v => v - m); }
+    const L2 = lam * lam, a0 = new Float64Array(n).fill(1), a1 = new Float64Array(n), a2 = new Float64Array(n), c = [1, -2, 1];
+    for (let k = 0; k < n - 2; k++) for (let p = 0; p < 3; p++) for (let q = p; q < 3; q++) {
+      const v = c[p] * c[q] * L2; if (q === p) a0[k + p] += v; else if (q - p === 1) a1[k + p] += v; else a2[k + p] += v; }
+    const d = new Float64Array(n), l1 = new Float64Array(n), l2 = new Float64Array(n);
+    for (let i = 0; i < n; i++) {
+      if (i >= 2) l2[i] = a2[i - 2] / d[i - 2];
+      if (i >= 1) l1[i] = (a1[i - 1] - (i >= 2 ? l2[i] * l1[i - 1] * d[i - 2] : 0)) / d[i - 1];
+      d[i] = a0[i] - (i >= 1 ? l1[i] ** 2 * d[i - 1] : 0) - (i >= 2 ? l2[i] ** 2 * d[i - 2] : 0);
+    }
+    const y = new Float64Array(n);
+    for (let i = 0; i < n; i++) y[i] = z[i] - (i >= 1 ? l1[i] * y[i - 1] : 0) - (i >= 2 ? l2[i] * y[i - 2] : 0);
+    for (let i = 0; i < n; i++) y[i] /= d[i];
+    const x = new Float64Array(n);
+    for (let i = n - 1; i >= 0; i--) x[i] = y[i] - (i + 1 < n ? l1[i + 1] * x[i + 1] : 0) - (i + 2 < n ? l2[i + 2] * x[i + 2] : 0);
+    return Float64Array.from(z, (v, i) => v - x[i]);
+  }
+
+  // RBJ biquads, Butterworth Q, cascaded ×2 → 4th-order each side; zero-phase filtfilt
+  function biquad(type, f, fs, Q = Math.SQRT1_2) {
+    const w = 2 * Math.PI * f / fs, cs = Math.cos(w), al = Math.sin(w) / (2 * Q);
+    let b0, b1, b2; const a0 = 1 + al, a1 = -2 * cs, a2 = 1 - al;
+    if (type === "lp") { b0 = (1 - cs) / 2; b1 = 1 - cs; b2 = b0; } else { b0 = (1 + cs) / 2; b1 = -(1 + cs); b2 = b0; }
+    return [b0 / a0, b1 / a0, b2 / a0, a1 / a0, a2 / a0];
+  }
+  function runBq(x, [b0, b1, b2, a1, a2]) {
+    const y = new Float64Array(x.length); let x1 = x[0], x2 = x[0], y1 = x[0] * (b0 + b1 + b2) / (1 + a1 + a2), y2 = y1;
+    for (let i = 0; i < x.length; i++) { const v = b0 * x[i] + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2; x2 = x1; x1 = x[i]; y2 = y1; y1 = v; y[i] = v; }
+    return y;
+  }
+  function bandpass(x, fs, lo, hi) {
+    hi = Math.min(hi, 0.45 * fs);
+    const sec = [biquad("hp", lo, fs, 0.5412), biquad("hp", lo, fs, 1.3066), biquad("lp", hi, fs, 0.5412), biquad("lp", hi, fs, 1.3066)];
+    const pad = Math.min(x.length - 1, Math.round(fs * 2)), n = x.length;
+    let y = new Float64Array(n + 2 * pad);                    // odd reflection padding
+    for (let i = 0; i < pad; i++) { y[i] = 2 * x[0] - x[pad - i]; y[n + pad + i] = 2 * x[n - 1] - x[n - 2 - i]; }
+    y.set(x, pad);
+    for (const s of sec) y = runBq(y, s); y.reverse();
+    for (const s of sec) y = runBq(y, s); y.reverse();
+    return y.slice(pad, pad + n);
+  }
+
+  function fft(re, im) {
+    const n = re.length;
+    for (let i = 1, j = 0; i < n; i++) { let bit = n >> 1; for (; j & bit; bit >>= 1) j ^= bit; j ^= bit;
+      if (i < j) { [re[i], re[j]] = [re[j], re[i]]; [im[i], im[j]] = [im[j], im[i]]; } }
+    for (let len = 2; len <= n; len <<= 1) {
+      const ang = -2 * Math.PI / len, wr = Math.cos(ang), wi = Math.sin(ang);
+      for (let i = 0; i < n; i += len) { let cr = 1, ci = 0;
+        for (let k = 0; k < len / 2; k++) {
+          const ar = re[i + k], ai = im[i + k], br = re[i + k + len / 2] * cr - im[i + k + len / 2] * ci, bi = re[i + k + len / 2] * ci + im[i + k + len / 2] * cr;
+          re[i + k] = ar + br; im[i + k] = ai + bi; re[i + k + len / 2] = ar - br; im[i + k + len / 2] = ai - bi;
+          const t = cr * wr - ci * wi; ci = cr * wi + ci * wr; cr = t; } } }
+  }
+  function periodogram(x, fs, nfft = 4096) {
+    while (nfft < x.length) nfft *= 2;
+    const re = new Float64Array(nfft), im = new Float64Array(nfft), w = hann(x.length), m = mean(x);
+    for (let i = 0; i < x.length; i++) re[i] = (x[i] - m) * w[i];
+    fft(re, im);
+    const half = nfft / 2, f = new Float64Array(half), p = new Float64Array(half);
+    for (let k = 0; k < half; k++) { f[k] = k * fs / nfft; p[k] = re[k] ** 2 + im[k] ** 2; }
+    return { f, p };
+  }
+  function peakFreq({ f, p }, lo, hi) {
+    let k = -1, best = -1;
+    for (let i = 0; i < f.length; i++) if (f[i] >= lo && f[i] <= hi && p[i] > best) { best = p[i]; k = i; }
+    if (k < 1 || k >= f.length - 1) return k < 0 ? NaN : f[k];
+    const a = Math.log(p[k - 1] + EPS), b = Math.log(p[k] + EPS), c = Math.log(p[k + 1] + EPS);
+    return f[k] + 0.5 * (a - c) / (a - 2 * b + c + EPS) * (f[1] - f[0]);
+  }
+  function snr({ f, p }, f0) {
+    if (!isFinite(f0)) return NaN; let s = 0, n = 0;
+    for (let i = 0; i < f.length; i++) { if (f[i] < 0.5 || f[i] > 4) continue;
+      if (Math.abs(f[i] - f0) <= 0.1 || Math.abs(f[i] - 2 * f0) <= 0.2) s += p[i]; else n += p[i]; }
+    return 10 * Math.log10((s + EPS) / (n + EPS));
+  }
+
+  // 3×3 linear algebra
+  function eigSym3(A) {                                  // Jacobi; returns vals desc + column vectors
+    const a = A.map(r => [...r]), V = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+    for (let sweep = 0; sweep < 50; sweep++) {
+      let off = Math.abs(a[0][1]) + Math.abs(a[0][2]) + Math.abs(a[1][2]); if (off < 1e-14) break;
+      for (const [p, q] of [[0, 1], [0, 2], [1, 2]]) {
+        if (Math.abs(a[p][q]) < 1e-18) continue;
+        const th = (a[q][q] - a[p][p]) / (2 * a[p][q]), t = Math.sign(th || 1) / (Math.abs(th) + Math.sqrt(th * th + 1));
+        const c = 1 / Math.sqrt(t * t + 1), s = t * c;
+        for (let k = 0; k < 3; k++) { const akp = a[k][p], akq = a[k][q]; a[k][p] = c * akp - s * akq; a[k][q] = s * akp + c * akq; }
+        for (let k = 0; k < 3; k++) { const apk = a[p][k], aqk = a[q][k]; a[p][k] = c * apk - s * aqk; a[q][k] = s * apk + c * aqk; }
+        for (let k = 0; k < 3; k++) { const vkp = V[k][p], vkq = V[k][q]; V[k][p] = c * vkp - s * vkq; V[k][q] = s * vkp + c * vkq; }
+      } }
+    const idx = [0, 1, 2].sort((i, j) => a[j][j] - a[i][i]);
+    return { vals: idx.map(i => a[i][i]), vecs: idx.map(i => [V[0][i], V[1][i], V[2][i]]) };
+  }
+  const outer3 = (X, Y) => [0, 1, 2].map(i => [0, 1, 2].map(j => { let s = 0; for (let k = 0; k < X[i].length; k++) s += X[i][k] * Y[j][k]; return s; }));
+  function solve3(A, b) {
+    const det = M => M[0][0] * (M[1][1] * M[2][2] - M[1][2] * M[2][1]) - M[0][1] * (M[1][0] * M[2][2] - M[1][2] * M[2][0]) + M[0][2] * (M[1][0] * M[2][1] - M[1][1] * M[2][0]);
+    const D = det(A) || EPS;
+    return [0, 1, 2].map(c => det(A.map((r, i) => r.map((v, j) => j === c ? b[i] : v))) / D);
+  }
+  const normRGB = X => X.map(c => { const m = mean(c) || EPS; return Float64Array.from(c, v => v / m); });
+  const center = X => X.map(c => { const m = mean(c); return Float64Array.from(c, v => v - m); });
+  const project = (u, X) => Float64Array.from(X[0], (_, k) => u[0] * X[0][k] + u[1] * X[1][k] + u[2] * X[2][k]);
+  function rejectG(u, X) {  // row G of (I − uuᵀ)X
+    const n = Math.hypot(...u) || EPS, v = u.map(x => x / n);
+    return Float64Array.from(X[1], (g, k) => g - v[1] * (v[0] * X[0][k] + v[1] * X[1][k] + v[2] * X[2][k]));
+  }
+  function peakRatio(x, fs) {
+    const s = periodogram(x, fs, 2048); let mx = 0, tot = 0;
+    for (let i = 0; i < s.f.length; i++) if (s.f[i] >= 0.7 && s.f[i] <= 3.5) { mx = Math.max(mx, s.p[i]); tot += s.p[i]; }
+    return mx / (tot + EPS);
+  }
+  function ola(X, fs, win, fn) {
+    const n = X[0].length, L = Math.max(Math.round(win * fs), 8);
+    if (n <= L) return fn(normRGB(X));
+    const h = new Float64Array(n), w = hann(L), step = Math.max(L >> 1, 1);
+    for (let s = 0; s + L <= n; s += step) {
+      const seg = fn(normRGB(X.map(c => c.subarray(s, s + L)))), m = mean(seg);
+      for (let i = 0; i < L; i++) h[s + i] += (seg[i] - m) * w[i];
+    }
+    return h;
+  }
+  function fastICA(X, iters = 200) {
+    const Z0 = center(X), C = outer3(Z0, Z0).map(r => r.map(v => v / Z0[0].length)), { vals, vecs } = eigSym3(C);
+    const K = [0, 1, 2].map(i => [0, 1, 2].map(j => vecs.reduce((s, v, k) => s + v[i] * v[j] / Math.sqrt(Math.max(vals[k], EPS)), 0)));
+    const Z = [0, 1, 2].map(i => Float64Array.from(Z0[0], (_, t) => K[i][0] * Z0[0][t] + K[i][1] * Z0[1][t] + K[i][2] * Z0[2][t]));
+    let W = [[1, 0, 0], [0.3, 1, 0], [0.2, -0.4, 1]]; const n = Z[0].length;
+    const symDecor = M => { const { vals: s, vecs: u } = eigSym3(outer3(M, M));
+      const R = [0, 1, 2].map(i => [0, 1, 2].map(j => u.reduce((acc, v, k) => acc + v[i] * v[j] / Math.sqrt(Math.max(s[k], EPS)), 0)));
+      return [0, 1, 2].map(i => [0, 1, 2].map(j => R[i][0] * M[0][j] + R[i][1] * M[1][j] + R[i][2] * M[2][j])); };
+    W = symDecor(W);
+    for (let it = 0; it < iters; it++) {
+      const W1 = [0, 1, 2].map(r => { const g = new Float64Array(3); let gp = 0;
+        for (let t = 0; t < n; t++) { const y = W[r][0] * Z[0][t] + W[r][1] * Z[1][t] + W[r][2] * Z[2][t], th = Math.tanh(y);
+          g[0] += th * Z[0][t]; g[1] += th * Z[1][t]; g[2] += th * Z[2][t]; gp += 1 - th * th; }
+        return [0, 1, 2].map(j => g[j] / n - (gp / n) * W[r][j]); });
+      const Wn = symDecor(W1);
+      const conv = Math.max(...[0, 1, 2].map(i => Math.abs(Math.abs(Wn[i][0] * W[i][0] + Wn[i][1] * W[i][1] + Wn[i][2] * W[i][2]) - 1)));
+      W = Wn; if (conv < 1e-6) break;
+    }
+    return W.map(w => project(w, Z));
+  }
+
+  const METHODS = {
+    GREEN: (X) => Float64Array.from(X[1], v => v / (mean(X[1]) || EPS)),
+    ICA: (X, fs) => fastICA(normRGB(X).map(c => detrend(c))).reduce((b, c) => peakRatio(c, fs) > peakRatio(b, fs) ? c : b),
+    PCA: (X, fs) => { const Z = center(normRGB(X)); const { vecs } = eigSym3(outer3(Z, Z));
+      return vecs.map(v => project(v, Z)).reduce((b, c) => peakRatio(c, fs) > peakRatio(b, fs) ? c : b); },
+    CHROM: (X, fs) => ola(X, fs, 1.6, C => { const xs = C[0].map((r, i) => 3 * r - 2 * C[1][i]), ys = C[0].map((r, i) => 1.5 * r + C[1][i] - 1.5 * C[2][i]);
+      const a = std(xs) / (std(ys) + EPS); return xs.map((v, i) => v - a * ys[i]); }),
+    PBV: (X) => { const C = normRGB(X), sd = C.map(std), nrm = Math.hypot(...sd) || EPS, pbv = sd.map(v => v / nrm), Z = center(C);
+      const Q = outer3(Z, Z).map((r, i) => r.map((v, j) => v + (i === j ? EPS : 0))), W = solve3(Q, pbv), den = pbv[0] * W[0] + pbv[1] * W[1] + pbv[2] * W[2];
+      return project(W, Z).map(v => v / (den || EPS)); },
+    POS: (X, fs) => ola(X, fs, 1.6, C => { const s1 = C[1].map((g, i) => g - C[2][i]), s2 = C[1].map((g, i) => g + C[2][i] - 2 * C[0][i]);
+      const a = std(s1) / (std(s2) + EPS); return s1.map((v, i) => v + a * s2[i]); }),
+    LGI: (X) => { const C = normRGB(X); return rejectG(eigSym3(outer3(C, C)).vecs[0], C); },
+    OMIT: (X) => { const C = normRGB(X); return rejectG([C[0][0], C[1][0], C[2][0]], C); },   // Q[:,0] of QR(C)
+  };
+
+  function beats(bvp, fs, hr) {
+    let x = bvp, minD = 0.33;
+    if (isFinite(hr)) { const f0 = hr / 60; x = bandpass(bvp, fs, Math.max(0.5, 0.6 * f0), 1.6 * f0); minD = 0.6 / f0; }
+    const m = mean(x), s = std(x) || EPS; x = x.map(v => (v - m) / s);
+    const D = Math.max(1, Math.floor(minD * fs)); let pk = [];
+    for (let i = 1; i < x.length - 1; i++) {
+      if (x[i] < 0.2 || x[i] < x[i - 1] || x[i] < x[i + 1]) continue;
+      let ok = true; for (let j = Math.max(0, i - D); j <= Math.min(x.length - 1, i + D); j++) if (x[j] > x[i]) { ok = false; break; }
+      if (ok && (!pk.length || i - pk[pk.length - 1] >= D)) pk.push(i);
+    }
+    if (pk.length > 4) { const med = median(pk.slice(1).map((v, i) => v - pk[i])), keep = [pk[0]];
+      for (const k of pk.slice(1)) { if (k - keep[keep.length - 1] < 0.7 * med) { if (x[k] > x[keep[keep.length - 1]]) keep[keep.length - 1] = k; } else keep.push(k); }
+      pk = keep; }
+    const t = pk.map(k => { if (k < 1 || k >= x.length - 1) return k / fs; const a = x[k - 1], b = x[k], c = x[k + 1]; return (k + 0.5 * (a - c) / (a - 2 * b + c + EPS)) / fs; });
+    return { idx: pk, t };
+  }
+
+  function hrv(pt) {
+    const out = { n: pt.length }; if (pt.length < 4) return out;
+    const ibi = pt.slice(1).map((v, i) => v - pt[i]), med0 = median(ibi.filter(v => v > 0.28 && v < 1.6));
+    const ok = ibi.map(v => v > 0.28 && v < 1.6 && Math.abs(v - med0) < 0.2 * med0);
+    const rr = [], tt = []; ibi.forEach((v, i) => { if (ok[i]) { rr.push(v * 1000); tt.push(pt[i + 1]); } });
+    out.artifact = 100 * (1 - rr.length / ibi.length); out.rr = rr; out.tt = tt;
+    if (rr.length < 3) return out;
+    const d = rr.slice(1).map((v, i) => v - rr[i]), m = mean(rr);
+    const sdnn = Math.sqrt(rr.reduce((s, v) => s + (v - m) ** 2, 0) / (rr.length - 1));
+    const rmssd = Math.sqrt(mean(d.map(v => v * v))), md = mean(d);
+    const sdsd = Math.sqrt(d.reduce((s, v) => s + (v - md) ** 2, 0) / Math.max(d.length - 1, 1));
+    const sd1 = Math.SQRT1_2 * sdsd, sd2 = Math.sqrt(Math.max(2 * sdnn * sdnn - sd1 * sd1, 0));
+    Object.assign(out, { meanIbi: m, hr: 60000 / m, sdnn, rmssd, pnn50: 100 * mean(d.map(v => Math.abs(v) > 50 ? 1 : 0)),
+      pnn20: 100 * mean(d.map(v => Math.abs(v) > 20 ? 1 : 0)), sd1, sd2, sd12: sd1 / (sd2 || EPS) });
+    const lo = Math.min(...rr), hi = Math.max(...rr), bins = {};
+    for (const v of rr) { const b = Math.floor((v - lo) / 50); bins[b] = (bins[b] || 0) + 1; }
+    const [mb, mc] = Object.entries(bins).sort((a, b) => b[1] - a[1])[0];
+    const Mo = (lo + 50 * mb + 25) / 1000, AMo = 100 * mc / rr.length, MxDMn = (hi - lo) / 1000;
+    out.si = MxDMn > 0 ? AMo / (2 * Mo * MxDMn) : NaN;
+    if (rr.length >= 8 && tt[tt.length - 1] - tt[0] >= 20) {           // LF / HF on 4 Hz tachogram
+      const fsI = 4, ti = [], ri = [];
+      for (let x = tt[0], j = 0; x <= tt[tt.length - 1]; x += 1 / fsI) { while (j < tt.length - 2 && tt[j + 1] < x) j++;
+        const w = (x - tt[j]) / (tt[j + 1] - tt[j]); ti.push(x); ri.push(rr[j] * (1 - w) + rr[j + 1] * w); }
+      const sp = periodogram(Float64Array.from(ri), fsI, 1024); let lf = 0, hf = 0;
+      const df = sp.f[1] - sp.f[0], scale = 1 / (fsI * ri.length * 0.375);
+      for (let i = 0; i < sp.f.length; i++) { const v = sp.p[i] * scale * 2 * df; if (sp.f[i] >= 0.04 && sp.f[i] < 0.15) lf += v; else if (sp.f[i] >= 0.15 && sp.f[i] < 0.4) hf += v; }
+      Object.assign(out, { lf, hf, lfhf: lf / (hf || EPS), lfnu: 100 * lf / (lf + hf || EPS) });
+      const rf = peakFreq(sp, 0.1, 0.5); if (isFinite(rf)) out.rsa = rf * 60;
+    }
+    return out;
+  }
+
+  function respiration(bvp, green, fs, pk, rsa) {
+    const est = {}; if (bvp.length / fs < 15) return est;
+    const g = detrend(green.map(v => v / (mean(green) || EPS)), 300);
+    const riiv = peakFreq(periodogram(bandpass(g, fs, 0.1, 0.5), fs, 8192), 0.1, 0.5); if (isFinite(riiv)) est.riiv = riiv * 60;
+    if (pk.idx.length >= 8) {
+      const tp = pk.idx.map(i => i / fs), amp = pk.idx.map(i => bvp[i]), ai = [];
+      for (let x = tp[0], j = 0; x <= tp[tp.length - 1]; x += 0.25) { while (j < tp.length - 2 && tp[j + 1] < x) j++;
+        const w = (x - tp[j]) / (tp[j + 1] - tp[j]); ai.push(amp[j] * (1 - w) + amp[j + 1] * w); }
+      if (ai.length > 16) { const r = peakFreq(periodogram(Float64Array.from(ai), 4, 1024), 0.1, 0.5); if (isFinite(r)) est.riav = r * 60; }
+    }
+    if (isFinite(rsa)) est.rsa = rsa;
+    const v = Object.values(est); if (v.length) est.fused = median(v);
+    return est;
+  }
+
+  function fuse(per) {
+    const pts = Object.values(per).filter(r => isFinite(r.hr) && isFinite(r.snr)).map(r => [r.hr, Math.max(r.snr, -10) + 10.001]).sort((a, b) => a[0] - b[0]);
+    if (!pts.length) return NaN; const tot = pts.reduce((s, p) => s + p[1], 0); let c = 0;
+    for (const p of pts) { c += p[1]; if (c >= tot / 2) return p[0]; } return pts[pts.length - 1][0];
+  }
+
+  function analyzeWindow(X, fs, names = Object.keys(METHODS)) {
+    const per = {}, bvps = {};
+    for (const name of names) {
+      try {
+        const raw = METHODS[name](X, fs), bvp = bandpass(detrend(raw), fs, 0.7, 3.5), sp = periodogram(bvp, fs);
+        const f0 = peakFreq(sp, 0.7, 3.5);
+        per[name] = { hr: f0 * 60, snr: snr(sp, f0) }; bvps[name] = { bvp, sp };
+      } catch (e) { per[name] = { hr: NaN, snr: NaN, err: String(e) }; }
+    }
+    return { per, bvps, fused: fuse(per) };
+  }
+
+  function rgbExtras(X, fs) {
+    const ac = c => { const m = mean(c) || EPS; return std(bandpass(Float64Array.from(c, v => v / m), fs, 0.7, 3.5)); };
+    return { ror: ac(X[0]) / (ac(X[2]) || EPS), pi: 200 * ac(X[1]) };
+  }
+
+  return { mean, std, median, resample, detrend, bandpass, periodogram, peakFreq, snr, METHODS, beats, hrv, respiration, fuse, analyzeWindow, rgbExtras, eigSym3 };
+})();
+// ==/DSP==
+
+/* ======================================================================= */
+const $ = id => document.getElementById(id);
+const METHOD_NAMES = Object.keys(DSP.METHODS);
+const METHOD_INFO = { GREEN: "2008", ICA: "2010", PCA: "2011", CHROM: "2013", PBV: "2014", POS: "2017", LGI: "2018", OMIT: "2023" };
+const ROI_IDX = {
+  forehead: [10, 338, 297, 332, 333, 334, 296, 336, 9, 107, 66, 105, 104, 103, 67, 109, 151, 108, 69, 299, 337],
+  lcheek: [116, 117, 118, 119, 100, 47, 126, 142, 36, 205, 187, 123, 50, 101, 203],
+  rcheek: [345, 346, 347, 348, 329, 277, 355, 371, 266, 425, 411, 352, 280, 330, 423],
+};
+const S = {
+  source: "sim", running: false, samples: [], est: [], maxSec: 180, last: null, hrvRes: null, resp: {},
+  win: 10, hrvWin: 60, fs: 30, primary: "POS", display: "FUSED", hrHist: [], lastBeat: 0,
+  frameTimes: [], motion: 0, light: 0, face: false, landmarker: null, lmLoading: false, prevCentroid: null,
+  engine: { url: "", ok: false, busy: false, last: null, deep: false }, trendOff: new Set(), simT0: 0, t0: 0, lastVT: -1,
+};
+let colors = {};
+function readColors() {
+  const cs = getComputedStyle(document.documentElement), g = n => cs.getPropertyValue(n).trim();
+  colors = { ink: g("--ink"), muted: g("--muted"), line: g("--line"), grid: g("--grid"), major: g("--grid-major"), pulse: g("--pulse"),
+    pulseSoft: g("--pulse-soft"), resp: g("--resp"), r: g("--r"), g: g("--g"), b: g("--b"), panel: g("--panel") };
+  METHOD_NAMES.forEach((m, i) => colors[m] = g(`--m${i + 1}`));
+  colors.FUSED = colors.ink;
+}
+readColors();
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { readColors(); drawAll(); });
+new MutationObserver(() => { readColors(); drawAll(); }).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+/* ---------------- charts ---------------- */
+function ctx2d(cv) {
+  const r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1, w = Math.max(1, Math.round(r.width * dpr)), h = Math.max(1, Math.round(r.height * dpr));
+  if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+  const c = cv.getContext("2d"); c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, r.width, r.height);
+  return { c, W: r.width, H: r.height };
+}
+function paper(c, W, H, pad) {
+  c.lineWidth = 1;
+  for (let x = pad.l, i = 0; x <= W - pad.r; x += 8, i++) { c.strokeStyle = i % 5 ? colors.grid : colors.major; c.beginPath(); c.moveTo(x + .5, pad.t); c.lineTo(x + .5, H - pad.b); c.stroke(); }
+  for (let y = H - pad.b, i = 0; y >= pad.t; y -= 8, i++) { c.strokeStyle = i % 5 ? colors.grid : colors.major; c.beginPath(); c.moveTo(pad.l, y + .5); c.lineTo(W - pad.r, y + .5); c.stroke(); }
+}
+function axisText(c, txt, x, y, align = "left", col = colors.muted) { c.fillStyle = col; c.font = "11px " + getComputedStyle(document.body).getPropertyValue("--mono"); c.textAlign = align; c.fillText(txt, x, y); }
+function niceTicks(lo, hi, n = 4) {
+  const span = hi - lo || 1, step0 = span / n, mag = 10 ** Math.floor(Math.log10(step0)), step = [1, 2, 5, 10].map(m => m * mag).find(s => s >= step0);
+  const out = []; for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step) out.push(+v.toFixed(6)); return out;
+}
+function lineChart(cv, series, o = {}) {
+  const { c, W, H } = ctx2d(cv), pad = { l: o.yl ? 36 : 8, r: 8, t: 8, b: o.xl ? 20 : 8 };
+  if (o.paper) paper(c, W, H, pad);
+  let xs = [], ys = []; series.forEach(s => { xs.push(...s.x); ys.push(...s.y.filter(isFinite)); });
+  if (!ys.length) { axisText(c, o.empty || "collecting signal…", W / 2, H / 2, "center"); return; }
+  let [x0, x1] = o.xr || [Math.min(...xs), Math.max(...xs)], [y0, y1] = o.yr || [Math.min(...ys), Math.max(...ys)];
+  if (y1 - y0 < (o.minSpan || 1e-9)) { const m = (y0 + y1) / 2; y0 = m - (o.minSpan || 1) / 2; y1 = m + (o.minSpan || 1) / 2; }
+  const py = (y1 - y0) * 0.08; y0 -= py; y1 += py;
+  const X = v => pad.l + (v - x0) / (x1 - x0 || 1) * (W - pad.l - pad.r), Y = v => H - pad.b - (v - y0) / (y1 - y0) * (H - pad.t - pad.b);
+  if (o.yl) { c.strokeStyle = colors.line; for (const t of niceTicks(y0, y1)) { c.beginPath(); c.moveTo(pad.l, Y(t) + .5); c.lineTo(W - pad.r, Y(t) + .5); c.stroke(); axisText(c, o.yfmt ? o.yfmt(t) : t, pad.l - 5, Y(t) + 4, "right"); } }
+  if (o.xl) for (const t of niceTicks(x0, x1, 5)) axisText(c, o.xfmt ? o.xfmt(t) : t, X(t), H - 5, "center");
+  for (const s of series) {
+    c.strokeStyle = s.color; c.lineWidth = s.w || 1.5; c.globalAlpha = s.alpha ?? 1; c.beginPath(); let pen = false;
+    s.x.forEach((xv, i) => { const yv = s.y[i]; if (!isFinite(yv)) { pen = false; return; } pen ? c.lineTo(X(xv), Y(yv)) : c.moveTo(X(xv), Y(yv)); pen = true; });
+    c.stroke();
+    if (s.fill) { c.lineTo(X(s.x[s.x.length - 1]), H - pad.b); c.lineTo(X(s.x[0]), H - pad.b); c.closePath(); c.fillStyle = s.fill; c.globalAlpha = 0.5; c.fill(); }
+    if (s.dots) { c.fillStyle = s.dotColor || s.color; c.globalAlpha = 1; s.dots.forEach(([xv, yv]) => { c.beginPath(); c.arc(X(xv), Y(yv), 3.2, 0, 7); c.fill(); }); }
+    if (s.end) { const i = s.x.length - 1; c.fillStyle = s.color; c.beginPath(); c.arc(X(s.x[i]), Y(s.y[i]), 3, 0, 7); c.fill(); }
+    c.globalAlpha = 1;
+  }
+  (o.vlines || []).forEach(([xv, col, lab], li) => { if (!isFinite(xv)) return; c.strokeStyle = col; c.setLineDash([4, 3]); c.beginPath(); c.moveTo(X(xv) + .5, pad.t); c.lineTo(X(xv) + .5, H - pad.b); c.stroke(); c.setLineDash([]); if (lab) axisText(c, lab, X(xv) + 4, pad.t + 10 + 14 * li, "left", col); });
+  return { X, Y };
+}
+function scatter(cv, pts, o = {}) {
+  const { c, W, H } = ctx2d(cv), pad = { l: 36, r: 8, t: 8, b: 20 };
+  if (pts.length < 3) { axisText(c, "needs ≥ 4 beats", W / 2, H / 2, "center"); return; }
+  const all = pts.flat(), lo = Math.min(...all) - 20, hi = Math.max(...all) + 20;
+  const X = v => pad.l + (v - lo) / (hi - lo) * (W - pad.l - pad.r), Y = v => H - pad.b - (v - lo) / (hi - lo) * (H - pad.t - pad.b);
+  c.strokeStyle = colors.line; for (const t of niceTicks(lo, hi, 3)) { c.beginPath(); c.moveTo(pad.l, Y(t)); c.lineTo(W - pad.r, Y(t)); c.stroke(); axisText(c, t, pad.l - 5, Y(t) + 4, "right"); axisText(c, t, X(t), H - 5, "center"); }
+  c.setLineDash([3, 3]); c.beginPath(); c.moveTo(X(lo), Y(lo)); c.lineTo(X(hi), Y(hi)); c.stroke(); c.setLineDash([]);
+  c.fillStyle = colors.pulse; c.globalAlpha = 0.7; pts.forEach(([a, b]) => { c.beginPath(); c.arc(X(a), Y(b), 2.8, 0, 7); c.fill(); }); c.globalAlpha = 1;
+}
+
+/* ---------------- sources ---------------- */
+const video = $("video"), overlay = $("overlay"), stage = $("stage");
+const work = document.createElement("canvas"); const wctx = work.getContext("2d", { willReadFrequently: true });
+
+function setSource(src) {
+  stop(); S.source = src;
+  document.querySelectorAll(".seg button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.src === src)));
+  stage.classList.toggle("mirror", src === "camera");
+  $("stageTag").textContent = { camera: "Camera", video: "Video file", sim: "Simulated subject" }[src];
+  msg(src === "video" ? "Choose a face video. Frames are analysed at the video's own timeline." : src === "camera" ? "Press Start and allow camera access. Sit still, face the light, and keep your face inside the frame." : "");
+  if (src === "video") $("fileIn").click();
+}
+function msg(t) { const m = $("stageMsg"); m.textContent = t; m.hidden = !t; }
+
+async function start() {
+  resetSession();
+  if (S.source === "camera") {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } }, audio: false });
+      video.srcObject = stream; await video.play(); applyExposureLock();
+    } catch (e) {
+      msg(`Camera unavailable: ${e.name || e}. Run the app locally with "python server.py" and open http://localhost:8000, or use the Simulator or a video file.`); return;
+    }
+    loadLandmarker();
+  } else if (S.source === "video") {
+    if (!video.src) { $("fileIn").click(); return; }
+    video.currentTime = 0; await video.play().catch(() => {}); loadLandmarker();
+  } else { S.simT0 = performance.now(); }
+  msg(""); S.running = true; S.t0 = performance.now(); $("btnRun").textContent = "Stop";
+  requestAnimationFrame(loop);
+}
+function stop() {
+  S.running = false; $("btnRun").textContent = "Start";
+  if (video.srcObject) { video.srcObject.getTracks().forEach(t => t.stop()); video.srcObject = null; }
+  if (S.source === "video") video.pause();
+}
+function resetSession() { Object.assign(S, { samples: [], est: [], hrHist: [], last: null, hrvRes: null, resp: {}, lastVT: -1, prevCentroid: null, frameTimes: [] }); }
+
+async function applyExposureLock() {
+  const track = video.srcObject?.getVideoTracks?.()[0]; if (!track?.getCapabilities) return;
+  const caps = track.getCapabilities(), want = $("lockExp").checked ? "manual" : "continuous", adv = {};
+  if (caps.exposureMode?.includes(want)) adv.exposureMode = want;
+  if (caps.whiteBalanceMode?.includes(want)) adv.whiteBalanceMode = want;
+  try { if (Object.keys(adv).length) await track.applyConstraints({ advanced: [adv] }); } catch { /* not supported */ }
+}
+
+async function loadLandmarker() {
+  if (S.landmarker || S.lmLoading) return; S.lmLoading = true;
+  const V = "0.10.14", base = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${V}`;
+  try {
+    const vision = await import(`${base}/vision_bundle.mjs`);
+    const files = await vision.FilesetResolver.forVisionTasks(`${base}/wasm`);
+    const opts = d => ({ baseOptions: { modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task", delegate: d }, runningMode: "VIDEO", numFaces: 1 });
+    try { S.landmarker = await vision.FaceLandmarker.createFromOptions(files, opts("GPU")); }
+    catch { S.landmarker = await vision.FaceLandmarker.createFromOptions(files, opts("CPU")); }
+  } catch (e) {
+    console.warn("Face mesh unavailable, using fixed ROI", e);
+    if (S.source !== "sim") msg("Face mesh could not load, so a fixed centre ROI is used. Keep your face inside the guide.");
+  } finally { S.lmLoading = false; }
+}
+
+/* ---------------- frame processing ---------------- */
+function hull(pts) {
+  const p = [...pts].sort((a, b) => a[0] - b[0] || a[1] - b[1]), cr = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const lo = [], up = [];
+  for (const q of p) { while (lo.length >= 2 && cr(lo[lo.length - 2], lo[lo.length - 1], q) <= 0) lo.pop(); lo.push(q); }
+  for (const q of p.reverse()) { while (up.length >= 2 && cr(up[up.length - 2], up[up.length - 1], q) <= 0) up.pop(); up.push(q); }
+  const h = lo.slice(0, -1).concat(up.slice(0, -1)), cx = DSP.mean(h.map(v => v[0])), cy = DSP.mean(h.map(v => v[1]));
+  return h.map(([x, y]) => [cx + 0.88 * (x - cx), cy + 0.88 * (y - cy)]);
+}
+function inPoly(x, y, P) { let c = false; for (let i = 0, j = P.length - 1; i < P.length; j = i++) if ((P[i][1] > y) !== (P[j][1] > y) && x < (P[j][0] - P[i][0]) * (y - P[i][1]) / (P[j][1] - P[i][1]) + P[i][0]) c = !c; return c; }
+function roiMean(img, W, P, skin) {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity; for (const [x, y] of P) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
+  x0 = Math.max(0, x0 | 0); y0 = Math.max(0, y0 | 0); x1 = Math.min(W - 1, x1 | 0); y1 = Math.min((img.length / 4 / W) - 1, y1 | 0);
+  let r = 0, g = 0, b = 0, n = 0, rA = 0, gA = 0, bA = 0, nA = 0;
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+    if (!inPoly(x + .5, y + .5, P)) continue; const k = 4 * (y * W + x), R = img[k], G = img[k + 1], B = img[k + 2];
+    rA += R; gA += G; bA += B; nA++;
+    if (skin) { const cr = 128 + 0.5 * R - 0.418688 * G - 0.081312 * B, cb = 128 - 0.168736 * R - 0.331264 * G + 0.5 * B; if (cr < 133 || cr > 173 || cb < 77 || cb > 127) continue; }
+    r += R; g += G; b += B; n++;
+  }
+  if (n < 12) { r = rA; g = gA; b = bA; n = nA; }
+  return n ? { rgb: [r / n, g / n, b / n], n } : null;
+}
+
+function processFrame(t) {
+  const vw = video.videoWidth, vh = video.videoHeight; if (!vw) return;
+  const W = 320, H = Math.round(320 * vh / vw); work.width = W; work.height = H;
+  wctx.drawImage(video, 0, 0, W, H); const img = wctx.getImageData(0, 0, W, H).data;
+  let polys = null, lms = null;
+  if (S.landmarker) {
+    try { const res = S.landmarker.detectForVideo(video, performance.now()); lms = res.faceLandmarks?.[0]; } catch { /* timestamp hiccup */ }
+    if (lms) polys = Object.fromEntries(Object.entries(ROI_IDX).map(([k, ids]) => [k, hull(ids.map(i => [lms[i].x * W, lms[i].y * H]))]));
+  }
+  if (!polys && !S.landmarker) {                                // fixed-guide fallback
+    const fx = W * 0.33, fy = H * 0.18, fw = W * 0.34, fh = H * 0.62, R = (x, y, w, h) => [[x, y], [x + w, y], [x + w, y + h], [x, y + h]];
+    polys = { forehead: R(fx + fw * .28, fy + fh * .08, fw * .44, fh * .14), lcheek: R(fx + fw * .12, fy + fh * .5, fw * .22, fh * .17), rcheek: R(fx + fw * .66, fy + fh * .5, fw * .22, fh * .17) };
+  }
+  S.face = !!lms || (!S.landmarker && !!polys);
+  const on = { forehead: $("roiF").checked, lcheek: $("roiL").checked, rcheek: $("roiR").checked }, per = {};
+  let acc = [0, 0, 0], N = 0;
+  if (polys) for (const [k, P] of Object.entries(polys)) {
+    const m = roiMean(img, W, P, $("skinOn").checked); per[k] = m?.rgb || null;
+    if (m && on[k]) { acc = acc.map((v, i) => v + m.rgb[i] * m.n); N += m.n; }
+  }
+  if (lms) { const cx = DSP.mean(lms.map(p => p.x)) * W, cy = DSP.mean(lms.map(p => p.y)) * H;
+    if (S.prevCentroid) S.motion = 0.85 * S.motion + 0.15 * Math.hypot(cx - S.prevCentroid[0], cy - S.prevCentroid[1]); S.prevCentroid = [cx, cy]; }
+  if (N) { const rgb = acc.map(v => v / N); S.light = 0.9 * S.light + 0.1 * DSP.mean(rgb); pushSample(t, rgb, per, true); }
+  drawOverlay(polys, lms, W, H);
+}
+
+// Simulator: known ground truth for method benchmarking
+function simTruth(t) { return 70 + 7 * Math.sin(2 * Math.PI * t / 50) + 3 * Math.sin(2 * Math.PI * t / 13); }
+const simState = { phase: 0, lastT: 0, noise: [0, 0, 0] };
+function simFrame(t) {
+  const dt = Math.min(t - simState.lastT, 0.1); simState.lastT = t;
+  const resp = Math.sin(2 * Math.PI * (14 / 60) * t), hr = simTruth(t) * (1 + 0.04 * resp);
+  simState.phase += 2 * Math.PI * hr / 60 * dt;
+  const pulse = Math.sin(simState.phase) + 0.35 * Math.sin(2 * simState.phase - 0.8), dir = [0.33, 0.77, 0.53], base = [182, 124, 98];
+  const illum = 1 + 0.004 * resp + 0.004 * Math.sin(2 * Math.PI * 0.05 * t);
+  let art = 0; if ($("simArt").checked && (t % 27) > 24.5) art = 1;
+  const rgb = base.map((b, i) => { simState.noise[i] = 0.6 * simState.noise[i] + 0.4 * (Math.random() - 0.5);
+    return b * illum * (1 + 0.0045 * dir[i] * pulse) + b * 0.0022 * simState.noise[i] * 2 + art * b * 0.02 * Math.sin(t * 9 + i); });
+  S.face = true; S.motion = 0.85 * S.motion + 0.15 * (art ? 3 : 0.08); S.light = 0.9 * S.light + 0.1 * DSP.mean(rgb);
+  pushSample(t, rgb, { forehead: rgb, lcheek: rgb, rcheek: rgb }, true, simTruth(t));
+  drawSimStage(pulse, art);
+}
+
+function pushSample(t, rgb, per, face, truth) {
+  S.samples.push({ t, rgb, per, face, truth });
+  const cut = t - S.maxSec; while (S.samples.length && S.samples[0].t < cut) S.samples.shift();
+  S.frameTimes.push(performance.now()); while (S.frameTimes.length > 45) S.frameTimes.shift();
+}
+
+function loop() {
+  if (!S.running) return;
+  if (S.source === "sim") simFrame((performance.now() - S.simT0) / 1000);
+  else if (video.readyState >= 2) {
+    const vt = S.source === "video" ? video.currentTime : (performance.now() - S.t0) / 1000;
+    if (vt !== S.lastVT) { S.lastVT = vt; processFrame(vt); }
+    if (S.source === "video" && video.ended) { stop(); analyzeTick(true); msg("Video finished. Results reflect the whole clip; export them below."); return; }
+  }
+  requestAnimationFrame(loop);
+}
+
+/* ---------------- stage drawing ---------------- */
+function fitOverlay() { const r = overlay.getBoundingClientRect(), d = devicePixelRatio || 1; overlay.width = r.width * d; overlay.height = r.height * d; const c = overlay.getContext("2d"); c.setTransform(d, 0, 0, d, 0, 0); return { c, W: r.width, H: r.height }; }
+const ROI_COL = { forehead: "#FF5C70", lcheek: "#4FC3CF", rcheek: "#E0A84A" };
+function drawOverlay(polys, lms, w, h) {
+  const { c, W, H } = fitOverlay(), vw = video.videoWidth, vh = video.videoHeight;
+  const sc = Math.max(W / vw, H / vh), ox = (W - vw * sc) / 2, oy = (H - vh * sc) / 2, k = vw / w;    // object-fit: cover mapping
+  const M = ([x, y]) => [ox + x * k * sc, oy + y * k * sc];
+  if (lms && $("meshOn").checked) { c.fillStyle = "rgba(255,255,255,.55)"; for (let i = 0; i < lms.length; i += 2) { const [x, y] = M([lms[i].x * w, lms[i].y * h]); c.fillRect(x - .8, y - .8, 1.6, 1.6); } }
+  if (!lms && !S.landmarker) { c.strokeStyle = "rgba(255,255,255,.6)"; c.setLineDash([6, 5]); c.beginPath(); const [cx, cy] = M([w * .5, h * .49]); c.ellipse(cx, cy, w * .19 * k * sc, h * .33 * k * sc, 0, 0, 7); c.stroke(); c.setLineDash([]); }
+  if (polys) for (const [key, P] of Object.entries(polys)) {
+    c.beginPath(); P.forEach((p, i) => { const [x, y] = M(p); i ? c.lineTo(x, y) : c.moveTo(x, y); }); c.closePath();
+    c.fillStyle = ROI_COL[key] + "33"; c.fill(); c.strokeStyle = ROI_COL[key]; c.lineWidth = 1.5; c.stroke();
+  }
+}
+function drawSimStage(pulse, art) {
+  const { c, W, H } = fitOverlay(), g = c.createLinearGradient(0, 0, 0, H); g.addColorStop(0, "#1b2030"); g.addColorStop(1, "#0d1017"); c.fillStyle = g; c.fillRect(0, 0, W, H);
+  const cx = W / 2 + (art ? 6 * Math.sin(performance.now() / 60) : 0), cy = H * 0.5, rx = W * 0.2, ry = H * 0.36, flush = 0.5 + 0.5 * pulse;
+  c.fillStyle = "#2a3040"; c.beginPath(); c.ellipse(cx, cy + ry * 1.25, rx * 1.9, ry * 0.55, 0, Math.PI, 0); c.fill();
+  c.fillStyle = `rgb(${196 + 14 * flush},${146 - 10 * flush},${120 - 6 * flush})`; c.beginPath(); c.ellipse(cx, cy, rx, ry, 0, 0, 7); c.fill();
+  c.fillStyle = "rgba(20,20,28,.55)"; [[-.38, -.08], [.38, -.08]].forEach(([dx, dy]) => { c.beginPath(); c.ellipse(cx + dx * rx, cy + dy * ry, rx * .13, ry * .05, 0, 0, 7); c.fill(); });
+  const R = (key, x, y, w, h) => { c.fillStyle = ROI_COL[key] + "33"; c.strokeStyle = ROI_COL[key]; c.lineWidth = 1.5; c.beginPath(); c.roundRect(cx + x * rx, cy + y * ry, w * rx, h * ry, 6); c.fill(); c.stroke(); };
+  R("forehead", -.45, -.72, .9, .36); R("lcheek", -.72, .08, .42, .32); R("rcheek", .3, .08, .42, .32);
+  c.fillStyle = "rgba(255,255,255,.75)"; c.font = "12px " + getComputedStyle(document.body).getPropertyValue("--mono"); c.textAlign = "right";
+  c.fillText(`truth ${simTruth((performance.now() - S.simT0) / 1000).toFixed(1)} bpm${art ? " · motion artefact" : ""}`, W - 12, H - 14);
+}
+
+/* ---------------- analysis ---------------- */
+function windowRGB(sec) {
+  const s = S.samples; if (s.length < 10) return null; const tEnd = s[s.length - 1].t, from = tEnd - sec;
+  const sel = s.filter(x => x.t >= from); if (sel.length < 10) return null;
+  const r = DSP.resample(sel.map(x => x.t), [0, 1, 2].map(c => sel.map(x => x.rgb[c])), S.fs);
+  return { X: r.x, t: r.t, dur: sel[sel.length - 1].t - sel[0].t, truth: sel.map(x => x.truth).filter(v => v != null) };
+}
+let tick = 0;
+function analyzeTick(force) {
+  if (!S.running && !force) return;
+  const w = windowRGB(S.win); const dur = w?.dur || 0;
+  $("warm").style.width = Math.min(100, 100 * dur / S.win) + "%";
+  if (!w || dur < Math.min(5, S.win * 0.6)) { updateStatus(); return; }
+  const A = DSP.analyzeWindow(w.X, S.fs);
+  const prim = A.bvps[S.primary] ? S.primary : "POS";
+  const hrSel = S.display === "FUSED" ? A.fused : A.per[S.display]?.hr;
+  const snrSel = S.display === "FUSED" ? DSP.median(Object.values(A.per).map(p => p.snr).filter(isFinite)) : A.per[S.display]?.snr;
+  const pk = DSP.beats(A.bvps[prim].bvp, S.fs, A.per[prim].hr);
+  const extras = DSP.rgbExtras(w.X, S.fs);
+  const tNow = S.samples[S.samples.length - 1].t;
+  const truth = w.truth.length ? DSP.mean(w.truth.slice(-Math.round(S.fs * 3))) : null;
+  S.last = { A, prim, pk, extras, w, hrSel, snrSel, truth };
+  S.hrHist.push(hrSel); if (S.hrHist.length > 5) S.hrHist.shift();
+  S.est.push({ t: tNow, fused: A.fused, disp: DSP.median(S.hrHist.filter(isFinite)), truth, per: Object.fromEntries(Object.entries(A.per).map(([k, v]) => [k, v.hr])), snr: Object.fromEntries(Object.entries(A.per).map(([k, v]) => [k, v.snr])) });
+  while (S.est.length && S.est[0].t < tNow - 120) S.est.shift();
+  const lastBeatT = w.t[0] + (pk.t[pk.t.length - 1] ?? -1);                // beat flash
+  if (pk.t.length && lastBeatT > S.lastBeat + 0.25) { S.lastBeat = lastBeatT; const h = $("heart"); h.classList.add("beat"); setTimeout(() => h.classList.remove("beat"), 140); }
+  if (force || tick++ % 3 === 0) {                                          // HRV + respiration on the long window
+    const L = windowRGB(S.hrvWin);
+    if (L && L.dur >= 15) {
+      const bl = DSP.bandpass(DSP.detrend(DSP.METHODS[prim](L.X, S.fs)), S.fs, 0.7, 3.5), f0 = DSP.peakFreq(DSP.periodogram(bl, S.fs), 0.7, 3.5) * 60;
+      const pkl = DSP.beats(bl, S.fs, f0); S.hrvRes = DSP.hrv(pkl.t); S.hrvRes.dur = L.dur;
+      S.resp = DSP.respiration(bl, L.X[1], S.fs, pkl, S.hrvRes.rsa);
+    }
+  }
+  render(); updateStatus();
+}
+
+/* ---------------- render ---------------- */
+const f1 = v => isFinite(v) ? v.toFixed(1) : "—", f0 = v => isFinite(v) ? Math.round(v) : "—", f2 = v => isFinite(v) ? v.toFixed(2) : "—";
+function quality() {
+  const L = S.last; if (!L) return { q: 0, label: "waiting", cls: "" };
+  const snrQ = Math.max(0, Math.min(1, (L.snrSel + 4) / 10)), motQ = Math.max(0, 1 - S.motion / 3), lightQ = S.light > 40 && S.light < 235 ? 1 : 0.3, faceQ = S.face ? 1 : 0;
+  const q = Math.round(100 * (0.55 * snrQ + 0.25 * motQ + 0.1 * lightQ + 0.1 * faceQ));
+  return { q, label: q >= 65 ? "good signal" : q >= 40 ? "fair signal" : "poor signal", cls: q >= 65 ? "good" : q >= 40 ? "fair" : "poor" };
+}
+function render() {
+  const L = S.last; if (!L) return;
+  const { A, prim, pk, extras, w } = L, disp = S.est[S.est.length - 1].disp, Q = quality();
+  $("hrNum").textContent = f0(disp); $("hrSrc").textContent = S.display;
+  $("hrSnr").textContent = f1(L.snrSel);
+  const hs = Object.values(A.per).map(p => p.hr).filter(isFinite); $("hrSpread").textContent = hs.length ? `±${f1((Math.max(...hs) - Math.min(...hs)) / 2)}` : "—";
+  $("hrIbi").textContent = f0(S.hrvRes?.hr);
+  $("gtWrap").hidden = L.truth == null;
+  if (L.truth != null) { $("hrTruth").textContent = f1(L.truth); $("hrErr").textContent = f1(disp - L.truth); }
+  const qe = $("qual"); qe.querySelector(".dot").className = "dot " + Q.cls; qe.querySelector("span").textContent = Q.label;
+  $("vResp").textContent = f1(S.resp.fused); $("nResp").textContent = ["riiv", "riav", "rsa"].map(k => `${k.toUpperCase()} ${f0(S.resp[k])}`).join(" · ");
+  const H = S.hrvRes || {}; $("vRmssd").textContent = f0(H.rmssd); $("vSdnn").textContent = f0(H.sdnn); $("vSI").textContent = f0(H.si);
+  $("nHrv").textContent = H.dur ? `${H.rr?.length || 0} beats · ${f0(H.dur)} s · ${f0(H.artifact)}% rejected` : "needs ≥ 15 s";
+  $("vPI").textContent = f2(extras.pi); $("vRoR").textContent = f2(extras.ror);
+  // BVP scope
+  const bvp = A.bvps[prim].bvp, n = bvp.length, show = Math.min(n, Math.round(S.fs * 12)), off = n - show;
+  const xs = Array.from({ length: show }, (_, i) => (i - show) / S.fs), ys = Array.from(bvp.subarray(off));
+  const dots = pk.idx.filter(i => i >= off).map(i => [(i - off - show) / S.fs, bvp[i]]);
+  lineChart($("cBvp"), [{ x: xs, y: ys, color: colors.pulse, w: 1.8, dots, dotColor: colors.ink }], { paper: true, xl: true, xfmt: v => v + " s" });
+  $("bvpAux").textContent = `${prim} · ${pk.idx.length} beats in ${f0(w.dur)} s`;
+  // spectrum
+  const specSeries = METHOD_NAMES.filter(m => A.bvps[m] && !S.trendOff.has(m)).map(m => { const { f, p } = A.bvps[m].sp, x = [], y = []; let mx = 0;
+    for (let i = 0; i < f.length; i++) if (f[i] >= 0.5 && f[i] <= 4) { x.push(f[i] * 60); y.push(p[i]); mx = Math.max(mx, p[i]); }
+    return { x, y: y.map(v => v / (mx || 1)), color: colors[m], w: m === prim ? 2.2 : 1, alpha: m === prim ? 1 : 0.45 }; });
+  lineChart($("cSpec"), specSeries, { xl: true, yr: [0, 1], vlines: [[A.fused, colors.ink, `fused ${f0(A.fused)}`], ...(L.truth != null ? [[L.truth, colors.resp, "truth"]] : [])] });
+  $("specAux").textContent = `peak ${f1(A.per[prim].hr)} bpm`;
+  drawTrend(); drawRGB(); drawMethods(); drawHRV();
+  $("sessAux").textContent = `${S.samples.length} samples · ${f0(S.samples.length ? S.samples[S.samples.length - 1].t - S.samples[0].t : 0)} s`;
+}
+function drawTrend() {
+  if (!S.est.length) return; const t1 = S.est[S.est.length - 1].t, xs = S.est.map(e => e.t - t1);
+  const series = METHOD_NAMES.filter(m => !S.trendOff.has(m)).map(m => ({ x: xs, y: S.est.map(e => e.per[m]), color: colors[m], w: 1, alpha: 0.55 }));
+  if (!S.trendOff.has("FUSED")) series.push({ x: xs, y: S.est.map(e => e.disp), color: colors.ink, w: 2.4, end: true });
+  if (S.est.some(e => e.truth != null)) series.push({ x: xs, y: S.est.map(e => e.truth ?? NaN), color: colors.resp, w: 1.5 });
+  lineChart($("cTrend"), series, { yl: true, xl: true, minSpan: 20, xfmt: v => v + "s" });
+}
+function drawRGB() {
+  const s = S.samples; if (s.length < 5) return; const tEnd = s[s.length - 1].t, sel = s.filter(x => x.t > tEnd - 15);
+  const xs = sel.map(x => x.t - tEnd), norm = c => { const v = sel.map(x => x.rgb[c]), m = DSP.mean(v); return v.map(q => q / m - 1); };
+  lineChart($("cRgb"), [{ x: xs, y: norm(0), color: colors.r, w: 1.2 }, { x: xs, y: norm(1), color: colors.g, w: 1.2 }, { x: xs, y: norm(2), color: colors.b, w: 1.2 }],
+    { yl: true, xl: true, yfmt: v => (v * 100).toFixed(1) + "%", xfmt: v => v + "s", minSpan: 0.004 });
+}
+function drawMethods() {
+  const A = S.last.A, py = S.engine.last?.methods || {}, maxS = Math.max(1, ...Object.values(A.per).map(p => p.snr).filter(isFinite));
+  $("tbMethods").innerHTML = METHOD_NAMES.map(m => `<tr data-m="${m}" class="${m === S.primary ? "sel" : ""}"><td><span class="sw" style="background:${colors[m]}"></span>${m}<span class="cite">${METHOD_INFO[m]}</span></td>
+    <td>${f1(A.per[m]?.hr)}</td><td>${f1(A.per[m]?.snr)}<span class="bar-snr" style="width:${Math.max(0, 40 * (A.per[m]?.snr || 0) / maxS)}px"></span></td><td>${f1(py[m]?.hr)}</td></tr>`).join("")
+    + `<tr><td><b>FUSED</b></td><td><b>${f1(A.fused)}</b></td><td></td><td>${f1(S.engine.last?.fused_hr)}</td></tr>`;
+}
+function drawHRV() {
+  const H = S.hrvRes || {}, py = S.engine.last?.hrv || {};
+  if (H.rr?.length) { const t1 = H.tt[H.tt.length - 1]; lineChart($("cTacho"), [{ x: H.tt.map(v => v - t1), y: H.rr, color: colors.pulse, w: 1.5, dots: H.tt.map((v, i) => [v - t1, H.rr[i]]) }], { yl: true, xl: true, minSpan: 60, xfmt: v => v + "s" }); scatter($("cPoinc"), H.rr.slice(1).map((v, i) => [H.rr[i], v])); }
+  else { lineChart($("cTacho"), [], { empty: "needs ≥ 15 s" }); scatter($("cPoinc"), []); }
+  const rows = [["Mean IBI", f0(H.meanIbi) + " ms"], ["SDNN", f1(H.sdnn) + " ms"], ["RMSSD", f1(H.rmssd) + " ms"], ["pNN50", f1(H.pnn50) + " %"], ["pNN20", f1(H.pnn20) + " %"],
+    ["SD1 / SD2", `${f0(H.sd1)} / ${f0(H.sd2)}`], ["Stress idx", f0(H.si)], ["LF / HF", f2(H.lfhf)], ["LF n.u.", f1(H.lfnu)], ["RSA resp", f1(H.rsa) + " /min"]];
+  if (S.engine.last) rows.push(["py LF/HF", f2(py.lf_hf)], ["py RMSSD", f1(py.rmssd_ms) + " ms"]);
+  $("hrvKv").innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("");
+  $("hrvAux").textContent = `window ${S.hrvWin} s · ${S.primary}`;
+}
+function updateStatus() {
+  const ft = S.frameTimes, fps = ft.length > 5 ? 1000 * (ft.length - 1) / (ft[ft.length - 1] - ft[0]) : 0;
+  const set = (id, cls, txt) => { const e = $(id); e.querySelector(".dot").className = "dot " + cls; e.querySelector("span").textContent = txt; };
+  set("chipFace", S.running ? (S.face ? "good" : "poor") : "", S.running ? (S.face ? (S.landmarker ? "face mesh" : S.source === "sim" ? "sim face" : "fixed ROI") : "no face") : "face —");
+  set("chipFps", fps > 24 ? "good" : fps > 14 ? "fair" : fps ? "poor" : "", `${f0(fps)} fps`);
+  const Q = quality(); $("mSQI").style.width = Q.q + "%"; $("oSQI").textContent = S.last ? Q.q + " / 100" : "—";
+  $("mLight").style.width = Math.min(100, S.light / 2.55) + "%"; $("oLight").textContent = S.light ? `${f0(S.light)} / 255${S.light < 60 ? " · too dark" : S.light > 225 ? " · saturated" : ""}` : "—";
+  $("mMotion").style.width = Math.min(100, S.motion * 33) + "%"; $("oMotion").textContent = S.running ? `${f2(S.motion)} px/frame` : "—";
+  $("roiInfo").textContent = S.landmarker ? "478-pt face mesh ROIs" : S.source === "sim" ? "synthetic ROIs" : "fixed guide ROIs";
+}
+function drawAll() { if (S.last) render(); }
+
+/* ---------------- Python engine ---------------- */
+async function engineConnect(silent) {
+  const url = $("engUrl").value.replace(/\/$/, ""); S.engine.url = url;
+  try {
+    const ctl = new AbortController(); setTimeout(() => ctl.abort(), 2500);
+    const r = await fetch(url + "/api/health", { signal: ctl.signal }); const j = await r.json();
+    S.engine.ok = !!j.ok; S.engine.deep = j.deep_available;
+    $("deepModel").innerHTML = `<option value="">None, classical only</option>` + j.deep_models.map(m => `<option ${j.deep_available ? "" : "disabled"}>${m}</option>`).join("");
+    $("engOut").textContent = `Connected to ${url}\nServer methods: ${j.methods.join(", ")}\nDeep models: ${j.deep_available ? "available" : "not installed (pip install open-rppg)"}`;
+  } catch { S.engine.ok = false; if (!silent) $("engOut").textContent = `No engine at ${url}.\nStart it with:  python server.py`; }
+  const e = $("chipEngine"); e.querySelector(".dot").className = "dot " + (S.engine.ok ? "good" : ""); e.querySelector("span").textContent = S.engine.ok ? "python on" : "python off";
+  $("btnClip").disabled = !S.engine.ok; $("btnUpload").disabled = !S.engine.ok;
+}
+async function engineTick() {
+  if (!S.engine.ok || S.engine.busy || !S.running) return;
+  const s = S.samples, tEnd = s[s.length - 1]?.t; if (!tEnd) return;
+  const sel = s.filter(x => x.t >= tEnd - Math.max(S.hrvWin, S.win)); if (sel.length < S.fs * 6) return;
+  S.engine.busy = true;
+  try {
+    const r = await fetch(S.engine.url + "/api/analyze", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ t: sel.map(x => x.t), rgb: sel.map(x => x.rgb), fs: S.fs, primary: S.primary }) });
+    const j = await r.json(); if (!r.ok) throw new Error(j.detail);
+    S.engine.last = j; const h = j.hrv || {}, rs = j.respiration || {};
+    $("engOut").textContent = `server window ${f1(j.duration_s)} s · ${j.compute_ms} ms\nfused HR ${f1(j.fused_hr)} bpm (primary ${j.primary})\n` +
+      `HRV: SDNN ${f1(h.sdnn_ms)} · RMSSD ${f1(h.rmssd_ms)} · pNN50 ${f1(h.pnn50_pct)}% · LF/HF ${f2(h.lf_hf)} · SI ${f0(h.stress_index)}\n` +
+      `resp ${f1(rs.fused)} br/min · PI ${f2(j.perfusion_index_pct)}% · R ${f2(j.spo2_ratio_uncalibrated)}`;
+    $("engAux").textContent = `updated ${new Date().toLocaleTimeString()}`;
+  } catch (e) { $("engOut").textContent = "Engine error: " + e.message; }
+  S.engine.busy = false;
+}
+async function engineVideo(blob, name) {
+  const fd = new FormData(); fd.append("file", blob, name); fd.append("primary", S.primary); fd.append("deep_model", $("deepModel").value);
+  $("engOut").textContent = `Uploading ${name} (${(blob.size / 1e6).toFixed(1)} MB) and analyzing…`;
+  try {
+    const r = await fetch(S.engine.url + "/api/video", { method: "POST", body: fd }), j = await r.json(), c = j.classical;
+    let out = c ? `Classical (${c.primary}): fused ${f1(c.fused_hr)} bpm over ${f1(c.duration_s)} s\n` + Object.entries(c.methods).map(([m, v]) => `  ${m.padEnd(6)} ${f1(v.hr)} bpm  SNR ${f1(v.snr)} dB`).join("\n") + `\n  RMSSD ${f1(c.hrv?.rmssd_ms)} ms · resp ${f1(c.respiration?.fused)} br/min\n` : `Classical: ${j.classical_error}\n`;
+    if (j.deep) out += j.deep.error ? `Deep: ${j.deep.error}` : `Deep ${j.deep.model}: HR ${f1(j.deep.hr)} bpm · SQI ${f2(j.deep.SQI)}\n  ${JSON.stringify(j.deep.hrv || {})}`;
+    $("engOut").textContent = out + `\n(${j.compute_ms} ms)`;
+  } catch (e) { $("engOut").textContent = "Upload failed: " + e.message; }
+}
+async function recordClip() {
+  if (S.source !== "camera" || !video.srcObject) { $("engOut").textContent = "Switch to Camera and press Start first."; return; }
+  const types = ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm", "video/mp4"], mime = types.find(t => window.MediaRecorder?.isTypeSupported?.(t));
+  const rec = new MediaRecorder(video.srcObject, { mimeType: mime, videoBitsPerSecond: 8e6 }), chunks = [];
+  rec.ondataavailable = e => chunks.push(e.data); const btn = $("btnClip"); btn.disabled = true;
+  rec.onstop = () => { btn.disabled = false; btn.textContent = "Record 20 s clip → analyze"; engineVideo(new Blob(chunks, { type: mime }), "clip." + (mime.includes("mp4") ? "mp4" : "webm")); };
+  rec.start(); let left = 20; btn.textContent = `Recording… ${left}s`;
+  const iv = setInterval(() => { left--; btn.textContent = `Recording… ${left}s`; if (left <= 0) { clearInterval(iv); rec.stop(); } }, 1000);
+}
+
+/* ---------------- export ---------------- */
+function download(name, text, type) {
+  const url = URL.createObjectURL(new Blob([text], { type })), a = document.createElement("a"); a.href = url; a.download = name; document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  $("exportNote").textContent = `Saved ${name}. If nothing downloaded (the hosted preview blocks downloads), use Copy summary or run the app locally.`;
+}
+const stamp = () => new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+function csv() {
+  const rois = ["forehead", "lcheek", "rcheek"], head = ["t_s", "R", "G", "B", ...rois.flatMap(r => ["R", "G", "B"].map(c => `${r}_${c}`)), "face", "truth_bpm"];
+  return [head.join(",")].concat(S.samples.map(s => [s.t.toFixed(4), ...s.rgb.map(v => v.toFixed(4)), ...rois.flatMap(r => (s.per[r] || [NaN, NaN, NaN]).map(v => isFinite(v) ? v.toFixed(4) : "")), s.face ? 1 : 0, s.truth != null ? s.truth.toFixed(2) : ""].join(","))).join("\n");
+}
+function report() {
+  const L = S.last, H = { ...(S.hrvRes || {}) }; delete H.tt;
+  return { app: "rPPG Lab", created: new Date().toISOString(), source: S.source, settings: { hrWindow_s: S.win, hrvWindow_s: S.hrvWin, fs: S.fs, primary: S.primary, headline: S.display, skinMask: $("skinOn").checked },
+    summary: L ? { hr_bpm: S.est[S.est.length - 1]?.disp, fused_bpm: L.A.fused, methods: L.A.per, respiration: S.resp, perfusion_index_pct: L.extras.pi, spo2_ratio_uncalibrated: L.extras.ror, quality: quality().q } : null,
+    hrv: H, python_engine: S.engine.last, estimates: S.est };
+}
+function summaryText() {
+  const L = S.last; if (!L) return "No measurement yet.";
+  const H = S.hrvRes || {};
+  return `rPPG Lab · ${new Date().toLocaleString()} · source ${S.source}\nHR ${f1(S.est[S.est.length - 1].disp)} bpm (${S.display}), fused ${f1(L.A.fused)}\n` +
+    METHOD_NAMES.map(m => `${m} ${f1(L.A.per[m].hr)} (SNR ${f1(L.A.per[m].snr)} dB)`).join(" | ") +
+    `\nResp ${f1(S.resp.fused)} br/min · RMSSD ${f1(H.rmssd)} ms · SDNN ${f1(H.sdnn)} ms · pNN50 ${f1(H.pnn50)}% · LF/HF ${f2(H.lfhf)} · SI ${f0(H.si)}\nPI ${f2(L.extras.pi)}% · R ${f2(L.extras.ror)} (uncalibrated) · quality ${quality().q}/100`;
+}
+
+/* ---------------- wiring ---------------- */
+document.querySelectorAll(".seg button").forEach(b => b.addEventListener("click", () => setSource(b.dataset.src)));
+$("btnRun").addEventListener("click", () => S.running ? stop() : start());
+$("fileIn").addEventListener("change", e => { const f = e.target.files[0]; if (!f) return; if (video.srcObject) video.srcObject = null; video.src = URL.createObjectURL(f); video.loop = false; msg(`Loaded ${f.name}. Press Start.`); });
+const selP = $("selPrimary"), dispSel = $("dispSrc");
+METHOD_NAMES.forEach(m => { selP.add(new Option(m, m, m === "POS", m === "POS")); dispSel.add(new Option(m, m)); });
+selP.addEventListener("change", () => { S.primary = selP.value; analyzeTick(true); });
+dispSel.addEventListener("change", () => { S.display = dispSel.value; S.hrHist = []; analyzeTick(true); });
+$("tbMethods").addEventListener("click", e => { const tr = e.target.closest("tr[data-m]"); if (!tr) return; S.primary = selP.value = tr.dataset.m; analyzeTick(true); });
+$("winSec").addEventListener("input", e => { S.win = +e.target.value; $("winOut").textContent = S.win; });
+$("hrvSec").addEventListener("input", e => { S.hrvWin = +e.target.value; $("hrvOut").textContent = S.hrvWin; });
+$("fsSel").addEventListener("change", e => { S.fs = +e.target.value; });
+$("lockExp").addEventListener("change", applyExposureLock);
+$("btnCsv").addEventListener("click", () => download(`rppg-trace-${stamp()}.csv`, csv(), "text/csv"));
+$("btnJson").addEventListener("click", () => download(`rppg-report-${stamp()}.json`, JSON.stringify(report(), null, 2), "application/json"));
+$("btnCopy").addEventListener("click", async () => { const t = summaryText(); try { await navigator.clipboard.writeText(t); $("exportNote").textContent = "Summary copied."; } catch { $("engOut").textContent = t; $("exportNote").textContent = "Clipboard blocked, so the summary is shown in the Python engine panel for manual copy."; } });
+$("btnReset").addEventListener("click", () => { resetSession(); S.lastBeat = 0; $("hrNum").textContent = "--"; });
+$("btnConnect").addEventListener("click", () => engineConnect(false));
+$("btnClip").addEventListener("click", recordClip);
+$("btnUpload").addEventListener("click", () => $("fileSrv").click());
+$("fileSrv").addEventListener("change", e => { const f = e.target.files[0]; if (f) engineVideo(f, f.name); });
+const legend = $("legend");
+legend.innerHTML = ["FUSED", ...METHOD_NAMES].map(m => `<span data-m="${m}"><i style="background:var(${m === "FUSED" ? "--ink" : "--m" + (METHOD_NAMES.indexOf(m) + 1)})"></i>${m}</span>`).join("") + `<span><i style="background:var(--resp)"></i>truth (sim)</span>`;
+legend.addEventListener("click", e => { const s = e.target.closest("span[data-m]"); if (!s) return; const m = s.dataset.m; S.trendOff.has(m) ? S.trendOff.delete(m) : S.trendOff.add(m); s.classList.toggle("off"); drawAll(); });
+new ResizeObserver(() => drawAll()).observe(document.querySelector("main"));
+
+setInterval(() => analyzeTick(false), 500);
+setInterval(engineTick, 2000);
+setInterval(updateStatus, 1000);
+
+// boot: if served by server.py use this origin, otherwise look for the engine on localhost:8000
+(async () => {
+  if (location.protocol.startsWith("http")) {
+    $("engUrl").value = location.origin; await engineConnect(true);
+    if (S.engine.ok) return;
+  }
+  $("engUrl").value = "http://localhost:8000"; engineConnect(true);
+})();
+setSource("sim"); start();
+</script>
+</body>
+</html>

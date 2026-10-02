@@ -1,0 +1,9 @@
+numpy>=1.24
+scipy>=1.11
+fastapi>=0.110
+uvicorn>=0.27
+python-multipart>=0.0.9
+opencv-python>=4.8
+matplotlib>=3.7
+# Optional: pretrained deep rPPG models (FacePhys, PhysMamba, PhysFormer, TS-CAN, EfficientPhys, PhysNet …)
+# open-rppg

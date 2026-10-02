@@ -1,0 +1,34 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "rPPG Lab: run server",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/server.py",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "rPPG Lab: analyze a video",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/analyze_video.py",
+      "args": ["${input:videoPath}", "--plot", "report.png", "--json", "report.json"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "rPPG Lab: synthetic self-test",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/analyze_video.py",
+      "args": ["--synthetic", "--plot", "synthetic.png"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal"
+    }
+  ],
+  "inputs": [
+    { "id": "videoPath", "type": "promptString", "description": "Path to a face video", "default": "face.mp4" }
+  ]
+}

@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.Python
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Generated analysis output
+report.png
+report.json
+trace.csv
+synthetic.png
+*.webm
+*.mp4
+*.mov
+*.avi
+
+# OS / editor
+.DS_Store
+.idea/
+*.swp
+
+# Caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
