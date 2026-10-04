@@ -118,7 +118,18 @@ section:nth-child(n+4){animation-delay:150ms}
 .nrsRow{display:flex;align-items:flex-start;gap:16px;margin-top:10px}
 .nrs{font:800 clamp(96px,11vw,190px)/.76 var(--display);letter-spacing:-.06em;
   font-variant-numeric:tabular-nums}
-.nrsRow .over{font:400 17px var(--mono);color:var(--muted);padding-top:18px}
+.overCol{display:flex;flex-direction:column;padding-top:18px}
+.nrsRow .over{font:400 17px var(--mono);color:var(--muted);line-height:1}
+/* The published PSPI sits beside the fused index: the 0-16 facial score the
+   0-10 reading is anchored to, so both scales are visible at once. */
+.pspiInline{margin-top:22px}
+.pspiInline .k{font:400 9px var(--mono);letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
+.pspiInline .v{font:400 24px var(--mono);letter-spacing:-.03em;margin-top:5px;color:var(--ink);
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+.pspiInline .v small{font:400 12px var(--display);color:var(--faint)}
+.pspiInline .track{width:82px;height:3px;background:var(--grid);margin-top:8px}
+.pspiInline .track i{display:block;height:100%;width:0;background:var(--accent);
+  transition:width var(--dur) var(--ease),background var(--dur)}
 .bandBox{margin-left:auto;text-align:right;padding-top:12px}
 .bandName{font:700 clamp(22px,2.4vw,38px)/1 var(--display);letter-spacing:-.03em;
   color:var(--accent);transition:color var(--dur) var(--ease)}
@@ -288,7 +299,14 @@ footer em{font-style:normal;font-weight:800;color:var(--ink);letter-spacing:-.02
 
     <div class="nrsRow">
       <span class="nrs" id="nrsNum">&mdash;</span>
-      <span class="over">/10</span>
+      <div class="overCol">
+        <span class="over">/10</span>
+        <div class="pspiInline">
+          <div class="k">PSPI</div>
+          <div class="v"><span id="pspiBig">&mdash;</span><small>/16</small></div>
+          <div class="track"><i id="pspiFill"></i></div>
+        </div>
+      </div>
       <div class="bandBox">
         <div class="bandName" id="painLabel">No reading</div>
         <div class="bandSub" id="confLine">confidence &mdash;</div>
@@ -307,9 +325,9 @@ footer em{font-style:normal;font-weight:800;color:var(--ink);letter-spacing:-.02
 
     <div class="cells">
       <div class="cell">
-        <div class="k">Facial · PSPI</div>
-        <div class="v"><span id="pspiNum">&mdash;</span><small>/16</small></div>
-        <div class="n"><span id="smileWord">smile-corrected</span> <span id="corrNum">&mdash;</span>%</div>
+        <div class="k">Facial · corrected</div>
+        <div class="v"><span id="corrNum">&mdash;</span><small>%</small></div>
+        <div class="n"><span id="smileWord">smile-corrected</span> from <span id="pspiNum">&mdash;</span>/16</div>
       </div>
       <div class="cell">
         <div class="k">Autonomic</div>
@@ -1176,6 +1194,8 @@ function renderPain(){
     ? `peak ${fmt(Math.max(...S.liveEp.map(e => e.peak_nrs)), 1)}`
     : "peak &mdash;";
 
+  setNum("pspiBig", p.facial.pspi, v => v === null ? "&mdash;" : v.toFixed(2));
+  $("pspiFill").style.width = clamp(p.facial.pspi / S.pspiMax) * 100 + "%";
   setNum("pspiNum", p.facial.pspi, v => v === null ? "&mdash;" : v.toFixed(2));
   setNum("corrNum", p.facial.corrected, v => v === null ? "&mdash;" : String(Math.round(v * 100)));
   $("smileWord").textContent = p.facial.smile > 0.4 ? "smile discounted" : "smile-corrected";
@@ -1194,6 +1214,8 @@ function renderPain(){
 }
 function renderNoFace(){
   setNum("nrsNum", null, () => "&mdash;");
+  setNum("pspiBig", null, () => "&mdash;");
+  $("pspiFill").style.width = "0%";
   $("painLabel").textContent = "No face";
   setSteps(null);
   $("trig").classList.remove("armed");

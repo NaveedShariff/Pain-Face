@@ -61,3 +61,63 @@ def test_active_pain_aus_respects_threshold_and_order():
     aus = {"AU04": 0.9, "AU07": 0.55, "AU25": 0.8, "AU12": 0.1, "AU09": 0.2}
     assert P.active_pain_aus(aus) == ["AU04", "AU07", "AU25"]
     assert P.active_pain_aus(aus, threshold=0.85) == ["AU04"]
+
+
+class TestStandardFormula:
+    """Pin the published definition term by term.
+
+        Prkachin & Solomon (2008)
+        PSPI = AU4 + max(AU6, AU7) + max(AU9, AU10) + AU43
+
+    AU4, the orbital term and the levator term each contribute 0-5; AU43
+    contributes 0-1; the score therefore runs 0-16. These cases are worked by
+    hand so a refactor cannot quietly change the arithmetic.
+    """
+
+    def test_term_ceilings_are_five_five_five_one(self):
+        assert [pts for _, _, pts in P.PSPI_TERMS] == [5.0, 5.0, 5.0, 1.0]
+        assert P.PSPI_MAX == 16.0
+
+    def test_term_membership_matches_the_definition(self):
+        assert {label: list(codes) for label, codes, _ in P.PSPI_TERMS} == {
+            "brow_lowering": ["AU04"],
+            "orbital_tightening": ["AU06", "AU07"],
+            "levator_contraction": ["AU09", "AU10"],
+            "eye_closure": ["AU43"],
+        }
+
+    @pytest.mark.parametrize("aus,expected", [
+        ({"AU04": 0, "AU06": 0, "AU07": 0, "AU09": 0, "AU10": 0, "AU43": 0}, 0.0),
+        ({"AU04": 1, "AU06": 1, "AU07": 1, "AU09": 1, "AU10": 1, "AU43": 1}, 16.0),
+        ({"AU04": 1}, 5.0),
+        ({"AU43": 1}, 1.0),
+        ({"AU06": 1, "AU07": 1}, 5.0),          # paired terms take the max...
+        ({"AU09": 1, "AU10": 1}, 5.0),          # ...they are never summed
+        ({"AU06": 0.4, "AU07": 0.9}, 4.5),      # the larger of the pair wins
+        ({"AU09": 0.7, "AU10": 0.2}, 3.5),
+        # 0.8*5 + max(.2,.6)*5 + max(.4,.7)*5 + 0.3*1
+        ({"AU04": 0.8, "AU06": 0.2, "AU07": 0.6, "AU09": 0.4, "AU10": 0.7, "AU43": 0.3}, 10.8),
+    ])
+    def test_worked_cases(self, aus, expected):
+        assert P.pspi(aus) == pytest.approx(expected)
+
+    def test_aus_outside_the_definition_contribute_nothing(self):
+        """AU12, AU25 and the rest are informative but are not PSPI terms."""
+        assert P.pspi({"AU01": 1, "AU12": 1, "AU20": 1, "AU25": 1, "AU26": 1}) == 0.0
+
+    def test_fraction_is_the_score_over_sixteen(self):
+        aus = {"AU04": 0.8, "AU07": 0.6, "AU10": 0.7, "AU43": 0.3}
+        assert P.pspi_fraction(aus) == pytest.approx(P.pspi(aus) / 16.0)
+        assert 0.0 <= P.pspi_fraction(aus) <= 1.0
+
+    def test_score_is_monotonic_in_every_term(self):
+        base = {"AU04": 0.4, "AU07": 0.4, "AU10": 0.4, "AU43": 0.4}
+        for code in ("AU04", "AU07", "AU10", "AU43"):
+            more = dict(base, **{code: 0.9})
+            assert P.pspi(more) > P.pspi(base), code
+
+    def test_coder_intensities_use_the_same_structure(self):
+        """With true FACS 0-5 intensities the arithmetic is the literal one."""
+        assert P.pspi_raw({"AU04": 3, "AU07": 2, "AU10": 1, "AU43": 1}) == pytest.approx(7.0)
+        assert P.pspi_raw({"AU06": 4, "AU07": 2}) == pytest.approx(4.0)   # max, not 6
+        assert P.pspi_raw({"AU04": 5, "AU06": 5, "AU09": 5, "AU43": 1}) == pytest.approx(16.0)
