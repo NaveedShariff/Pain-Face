@@ -115,20 +115,29 @@ section:nth-child(n+4){animation-delay:150ms}
   .c3,.c4,.c5,.c6,.c7,.c8,.c12{grid-column:span 1}}
 
 /* ================================ hero ================================ */
-.nrsRow{display:flex;align-items:flex-start;gap:16px;margin-top:10px}
-.nrs{font:800 clamp(96px,11vw,190px)/.76 var(--display);letter-spacing:-.06em;
+/* Two readings of equal weight: the fused 0-10 index and the published
+   0-16 PSPI it is anchored to, with a dial on the index. Same type size,
+   because neither is a footnote to the other. */
+.nrsRow{display:flex;align-items:flex-start;gap:30px;margin-top:12px;flex-wrap:wrap}
+.nrs{font:800 clamp(54px,5.4vw,100px)/.86 var(--display);letter-spacing:-.055em;
   font-variant-numeric:tabular-nums}
-.overCol{display:flex;flex-direction:column;padding-top:18px}
-.nrsRow .over{font:400 17px var(--mono);color:var(--muted);line-height:1}
-/* The published PSPI sits beside the fused index: the 0-16 facial score the
-   0-10 reading is anchored to, so both scales are visible at once. */
-.pspiInline{margin-top:22px}
-.pspiInline .k{font:400 9px var(--mono);letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
-.pspiInline .v{font:400 24px var(--mono);letter-spacing:-.03em;margin-top:5px;color:var(--ink);
-  font-variant-numeric:tabular-nums;white-space:nowrap}
-.pspiInline .v small{font:400 12px var(--display);color:var(--faint)}
-.pspiInline .track{width:82px;height:3px;background:var(--grid);margin-top:8px}
-.pspiInline .track i{display:block;height:100%;width:0;background:var(--accent);
+.speedo{flex:0 0 168px;padding-top:4px}
+.speedo svg{width:168px;height:auto;display:block;overflow:visible}
+.sTrack{fill:none;stroke:var(--grid);stroke-width:7;stroke-linecap:round}
+.sFill{fill:none;stroke:var(--accent);stroke-width:7;stroke-linecap:round;opacity:0;
+  transition:stroke-dashoffset var(--dur) var(--ease),stroke var(--dur) var(--ease),opacity var(--dur)}
+.sMark{fill:var(--panel);stroke:var(--accent);stroke-width:2.5;
+  transition:cx var(--dur) var(--ease),cy var(--dur) var(--ease),stroke var(--dur) var(--ease),opacity var(--dur)}
+.sTick{stroke:var(--rule2);stroke-width:1}
+.sEnds{display:flex;justify-content:space-between;width:168px;margin-top:3px;
+  font:400 9px var(--mono);letter-spacing:.14em;color:var(--faint)}
+.reading{flex:1 1 188px;min-width:148px}
+.reading .rv{display:flex;align-items:baseline;gap:7px}
+.reading .rv small{font:400 15px var(--mono);color:var(--muted)}
+.reading .rk{font:400 9.5px var(--mono);letter-spacing:.16em;text-transform:uppercase;
+  color:var(--muted);margin-top:9px}
+.reading .track{width:100%;max-width:168px;height:3px;background:var(--grid);margin-top:10px}
+.reading .track i{display:block;height:100%;width:0;background:var(--accent);
   transition:width var(--dur) var(--ease),background var(--dur)}
 .bandBox{margin-left:auto;text-align:right;padding-top:12px}
 .bandName{font:700 clamp(22px,2.4vw,38px)/1 var(--display);letter-spacing:-.03em;
@@ -298,15 +307,29 @@ footer em{font-style:normal;font-weight:800;color:var(--ink);letter-spacing:-.02
     </div>
 
     <div class="nrsRow">
-      <span class="nrs" id="nrsNum">&mdash;</span>
-      <div class="overCol">
-        <span class="over">/10</span>
-        <div class="pspiInline">
-          <div class="k">PSPI</div>
-          <div class="v"><span id="pspiBig">&mdash;</span><small>/16</small></div>
-          <div class="track"><i id="pspiFill"></i></div>
-        </div>
+      <div class="speedo">
+        <svg viewBox="0 0 200 116" role="img" aria-labelledby="speedoTitle">
+          <title id="speedoTitle">Fused pain intensity on a 0 to 10 scale</title>
+          <path class="sTrack" d="M18 104 A 82 82 0 0 1 182 104"></path>
+          <path class="sFill" id="sFill" d="M18 104 A 82 82 0 0 1 182 104"></path>
+          <g id="sTicks"></g>
+          <circle class="sMark" id="sMark" r="5.5" cx="18" cy="104" opacity="0"></circle>
+        </svg>
+        <div class="sEnds"><span>0</span><span>10</span></div>
       </div>
+
+      <div class="reading">
+        <div class="rv"><span class="nrs" id="nrsNum">&mdash;</span><small>/10</small></div>
+        <div class="rk">Fused index</div>
+        <div class="track"><i id="nrsFill"></i></div>
+      </div>
+
+      <div class="reading">
+        <div class="rv"><span class="nrs" id="pspiBig">&mdash;</span><small>/16</small></div>
+        <div class="rk">PSPI</div>
+        <div class="track"><i id="pspiFill"></i></div>
+      </div>
+
       <div class="bandBox">
         <div class="bandName" id="painLabel">No reading</div>
         <div class="bandSub" id="confLine">confidence &mdash;</div>
@@ -1124,6 +1147,40 @@ function setAccent(nrs){
   return band;
 }
 
+/* The dial on the fused index. Measured values ease to position and never
+   overshoot: a needle that swings past the reading before settling would
+   show a pain level the subject never had. */
+const SPEEDO_R = 82, SPEEDO_CX = 100, SPEEDO_CY = 104;
+const SPEEDO_LEN = Math.PI * SPEEDO_R;
+function buildSpeedoTicks(){
+  const g = $("sTicks");
+  if (!g || g.childElementCount) return;
+  for (let i = 0; i <= 10; i += 2){
+    const a = Math.PI * (1 - i / 10), r0 = SPEEDO_R + 8, r1 = SPEEDO_R + 13;
+    const x0 = SPEEDO_CX + Math.cos(a) * r0, y0 = SPEEDO_CY - Math.sin(a) * r0;
+    const x1 = SPEEDO_CX + Math.cos(a) * r1, y1 = SPEEDO_CY - Math.sin(a) * r1;
+    g.insertAdjacentHTML("beforeend",
+      `<line class="sTick" x1="${x0.toFixed(1)}" y1="${y0.toFixed(1)}" x2="${x1.toFixed(1)}" y2="${y1.toFixed(1)}"/>`);
+  }
+}
+function setSpeedo(nrs){
+  const fill = $("sFill"), mark = $("sMark");
+  if (!fill) return;
+  fill.style.strokeDasharray = SPEEDO_LEN;
+  if (nrs === null || nrs < 0.05){
+    fill.style.strokeDashoffset = SPEEDO_LEN;
+    fill.style.opacity = 0; mark.setAttribute("opacity", 0);
+    return;
+  }
+  const f = clamp(nrs / 10);
+  fill.style.opacity = 1;
+  fill.style.strokeDashoffset = SPEEDO_LEN * (1 - f);
+  const a = Math.PI * (1 - f);
+  mark.setAttribute("cx", (SPEEDO_CX + Math.cos(a) * SPEEDO_R).toFixed(2));
+  mark.setAttribute("cy", (SPEEDO_CY - Math.sin(a) * SPEEDO_R).toFixed(2));
+  mark.setAttribute("opacity", 1);
+}
+
 /* The severity ramp: five solid blocks, the active one filled. Flat ink,
    readable across a room, and it survives greyscale because the ramp
    darkens as pain climbs rather than only changing hue. */
@@ -1179,6 +1236,8 @@ function renderPain(){
   const band = setAccent(p.nrs);
 
   setNum("nrsNum", p.nrs, v => v === null ? "&mdash;" : v.toFixed(1));
+  setSpeedo(p.nrs);
+  $("nrsFill").style.width = clamp(p.nrs / 10) * 100 + "%";
   $("painLabel").textContent = p.label ? p.label[0].toUpperCase() + p.label.slice(1) : band.name;
   setSteps(p.nrs);
   setNum("confLine", p.confidence, v => v === null ? "confidence &mdash;" : `confidence ${Math.round(v * 100)}%`);
@@ -1215,6 +1274,8 @@ function renderPain(){
 function renderNoFace(){
   setNum("nrsNum", null, () => "&mdash;");
   setNum("pspiBig", null, () => "&mdash;");
+  setSpeedo(null);
+  $("nrsFill").style.width = "0%";
   $("pspiFill").style.width = "0%";
   $("painLabel").textContent = "No face";
   setSteps(null);
@@ -1645,6 +1706,8 @@ $("btnRun").onclick = () => S.running ? stop() : start();
 /* --------------------------------------------------------------- boot -- */
 (async function boot(){
   buildZones();
+  buildSpeedoTicks();
+  setSpeedo(null);
   setSteps(null);
   $("liveInset").hidden = S.source !== "camera";
   renderSession(); renderBaseline(); renderEpisodes(); renderMethods(); drawAll();
