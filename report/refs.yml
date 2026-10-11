@@ -1,0 +1,185 @@
+cascella2024:
+  type: Article
+  title: "Employing the Artificial Intelligence Object Detection Tool YOLOv8 for Real-Time Pain Detection: A Feasibility Study"
+  author: ["Cascella, Marco", "Shariff, Mohammed Naveed", "Lo Bianco, Giuliano", "Monaco, Federica", "Gargano, Francesca", "Simonini, Alessandro", "Ponsiglione, Alfonso Maria", "Piazza, Ornella"]
+  date: 2024
+  parent:
+    type: Periodical
+    title: Journal of Pain Research
+    volume: 17
+  page-range: 3681-3696
+  serial-number:
+    doi: "10.2147/JPR.S491574"
+
+prkachin2008:
+  type: Article
+  title: "The structure, reliability and validity of pain expression: Evidence from patients with shoulder pain"
+  author: ["Prkachin, Kenneth M.", "Solomon, Patricia E."]
+  date: 2008
+  parent:
+    type: Periodical
+    title: Pain
+    volume: 139
+    issue: 2
+  page-range: 267-274
+
+kunz2014:
+  type: Article
+  title: "The faces of pain: A cluster analysis of individual differences in facial activity patterns of pain"
+  author: ["Kunz, Miriam", "Lautenbacher, Stefan"]
+  date: 2014
+  parent:
+    type: Periodical
+    title: European Journal of Pain
+    volume: 18
+    issue: 6
+  page-range: 813-823
+
+mende2020:
+  type: Article
+  title: "The Delaware Pain Database: A set of painful expressions and corresponding norming data"
+  author: ["Mende-Siedlecki, Peter", "Qu-Lee, Jennie", "Lin, Jingrun", "Drain, Alexis", "Goharzad, Azaadeh"]
+  date: 2020
+  parent:
+    type: Periodical
+    title: "PAIN Reports"
+    volume: 5
+    issue: 6
+  page-range: "e853"
+
+lucey2011:
+  type: Proceedings
+  title: "Painful data: The UNBC-McMaster shoulder pain expression archive database"
+  author: ["Lucey, Patrick", "Cohn, Jeffrey F.", "Prkachin, Kenneth M.", "Solomon, Patricia E.", "Matthews, Iain"]
+  date: 2011
+  parent:
+    type: Proceedings
+    title: "IEEE International Conference on Automatic Face and Gesture Recognition (FG)"
+  page-range: 57-64
+
+cheong2023:
+  type: Article
+  title: "Py-Feat: Python Facial Expression Analysis Toolbox"
+  author: ["Cheong, Jin Hyun", "Jolly, Eshin", "Xie, Tiankang", "Byrne, Sophie", "Kenney, Matthew", "Chang, Luke J."]
+  date: 2023
+  parent:
+    type: Periodical
+    title: "Affective Science"
+    volume: 4
+  page-range: 781-796
+
+verkruysse2008:
+  type: Article
+  title: "Remote plethysmographic imaging using ambient light"
+  author: ["Verkruysse, Wim", "Svaasand, Lars O.", "Nelson, J. Stuart"]
+  date: 2008
+  parent:
+    type: Periodical
+    title: Optics Express
+    volume: 16
+    issue: 26
+  page-range: 21434-21445
+
+poh2010:
+  type: Article
+  title: "Non-contact, automated cardiac pulse measurements using video imaging and blind source separation"
+  author: ["Poh, Ming-Zher", "McDuff, Daniel J.", "Picard, Rosalind W."]
+  date: 2010
+  parent:
+    type: Periodical
+    title: Optics Express
+    volume: 18
+    issue: 10
+  page-range: 10762-10774
+
+lewandowska2011:
+  type: Proceedings
+  title: "Measuring pulse rate with a webcam — a non-contact method for evaluating cardiac activity"
+  author: ["Lewandowska, Magdalena", "Rumiński, Jacek", "Kocejko, Tomasz", "Nowak, Jędrzej"]
+  date: 2011
+  parent:
+    type: Proceedings
+    title: "Federated Conference on Computer Science and Information Systems (FedCSIS)"
+  page-range: 405-410
+
+dehaan2013:
+  type: Article
+  title: "Robust pulse rate from chrominance-based rPPG"
+  author: ["de Haan, Gerard", "Jeanne, Vincent"]
+  date: 2013
+  parent:
+    type: Periodical
+    title: "IEEE Transactions on Biomedical Engineering"
+    volume: 60
+    issue: 10
+  page-range: 2878-2886
+
+dehaan2014:
+  type: Article
+  title: "Improved motion robustness of remote-PPG by using the blood volume pulse signature"
+  author: ["de Haan, Gerard", "van Leest, Arno"]
+  date: 2014
+  parent:
+    type: Periodical
+    title: Physiological Measurement
+    volume: 35
+    issue: 9
+  page-range: 1913-1926
+
+wang2017:
+  type: Article
+  title: "Algorithmic principles of remote PPG"
+  author: ["Wang, Wenjin", "den Brinker, Albertus C.", "Stuijk, Sander", "de Haan, Gerard"]
+  date: 2017
+  parent:
+    type: Periodical
+    title: "IEEE Transactions on Biomedical Engineering"
+    volume: 64
+    issue: 7
+  page-range: 1479-1491
+
+pilz2018:
+  type: Proceedings
+  title: "Local group invariance for heart rate estimation from face videos in the wild"
+  author: ["Pilz, Christian S.", "Zaunseder, Sebastian", "Krajewski, Jarek", "Blazek, Vladimir"]
+  date: 2018
+  parent:
+    type: Proceedings
+    title: "IEEE/CVF Conference on Computer Vision and Pattern Recognition Workshops (CVPRW)"
+  page-range: 1335-1343
+
+alvarez2023:
+  type: Article
+  title: "Face2PPG: An unsupervised pipeline for blood volume pulse extraction from faces"
+  author: ["Álvarez Casado, Constantino", "Bordallo López, Miguel"]
+  date: 2023
+  parent:
+    type: Periodical
+    title: "IEEE Journal of Biomedical and Health Informatics"
+    volume: 27
+    issue: 11
+  page-range: 5530-5541
+
+taskforce1996:
+  type: Article
+  title: "Heart rate variability: Standards of measurement, physiological interpretation, and clinical use"
+  author: "Task Force of the European Society of Cardiology and the North American Society of Pacing and Electrophysiology"
+  date: 1996
+  parent:
+    type: Periodical
+    title: Circulation
+    volume: 93
+    issue: 5
+  page-range: 1043-1065
+
+tarvainen2002:
+  type: Article
+  title: "An advanced detrending method with application to HRV analysis"
+  author: ["Tarvainen, Mika P.", "Ranta-aho, Perttu O.", "Karjalainen, Pasi A."]
+  date: 2002
+  parent:
+    type: Periodical
+    title: "IEEE Transactions on Biomedical Engineering"
+    volume: 49
+    issue: 2
+  page-range: 172-175

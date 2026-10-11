@@ -1,0 +1,7 @@
+group,n,mean_pspi,mean_rating,painAU_F1,r_pspi_rating,face_quality
+race: Asian,24,12.26,3.33,0.686,0.577,1.0
+race: Black,23,12.37,3.33,0.78,0.55,1.0
+race: Latinx,23,12.72,3.31,0.754,0.616,1.0
+race: White,23,11.98,3.38,0.781,0.736,1.0
+sex: Female,46,12.53,3.18,0.783,0.661,1.0
+sex: Male,47,12.14,3.49,0.733,0.598,1.0

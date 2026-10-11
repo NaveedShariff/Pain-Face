@@ -1,0 +1,264 @@
+{
+ "n_images": 95,
+ "au_threshold": 0.5,
+ "per_au": [
+  {
+   "AU": "AU01",
+   "prevalence": 0.221,
+   "painface_acc": 0.842,
+   "painface_f1": 0.545,
+   "painface_kappa": 0.458,
+   "openface_acc": 0.779,
+   "openface_f1": 0.604,
+   "openface_kappa": 0.459
+  },
+  {
+   "AU": "AU02",
+   "prevalence": 0.074,
+   "painface_acc": 0.937,
+   "painface_f1": 0.4,
+   "painface_kappa": 0.372,
+   "openface_acc": 0.916,
+   "openface_f1": 0.636,
+   "openface_kappa": 0.596
+  },
+  {
+   "AU": "AU04",
+   "prevalence": 0.853,
+   "painface_acc": 0.895,
+   "painface_f1": 0.935,
+   "painface_kappa": 0.661,
+   "openface_acc": 0.8,
+   "openface_f1": 0.872,
+   "openface_kappa": 0.425
+  },
+  {
+   "AU": "AU05",
+   "prevalence": 0.053,
+   "painface_acc": 0.958,
+   "painface_f1": 0.5,
+   "painface_kappa": 0.479,
+   "openface_acc": 0.947,
+   "openface_f1": 0.545,
+   "openface_kappa": 0.518
+  },
+  {
+   "AU": "AU06",
+   "prevalence": 0.379,
+   "painface_acc": 0.716,
+   "painface_f1": 0.682,
+   "painface_kappa": 0.436,
+   "openface_acc": 0.579,
+   "openface_f1": 0.643,
+   "openface_kappa": 0.265
+  },
+  {
+   "AU": "AU07",
+   "prevalence": 0.768,
+   "painface_acc": 0.758,
+   "painface_f1": 0.839,
+   "painface_kappa": 0.351,
+   "openface_acc": 0.789,
+   "openface_f1": 0.87,
+   "openface_kappa": 0.322
+  },
+  {
+   "AU": "AU09",
+   "prevalence": 0.547,
+   "painface_acc": 0.853,
+   "painface_f1": 0.854,
+   "painface_kappa": 0.707,
+   "openface_acc": 0.747,
+   "openface_f1": 0.793,
+   "openface_kappa": 0.478
+  },
+  {
+   "AU": "AU10",
+   "prevalence": 0.274,
+   "painface_acc": 0.368,
+   "painface_f1": 0.464,
+   "painface_kappa": 0.076,
+   "openface_acc": 0.421,
+   "openface_f1": 0.433,
+   "openface_kappa": 0.054
+  },
+  {
+   "AU": "AU12",
+   "prevalence": 0.368,
+   "painface_acc": 0.874,
+   "painface_f1": 0.818,
+   "painface_kappa": 0.722,
+   "openface_acc": 0.747,
+   "openface_f1": 0.692,
+   "openface_kappa": 0.482
+  },
+  {
+   "AU": "AU14",
+   "prevalence": 0.158,
+   "painface_acc": 0.547,
+   "painface_f1": 0.317,
+   "painface_kappa": 0.101,
+   "openface_acc": 0.484,
+   "openface_f1": 0.364,
+   "openface_kappa": 0.147
+  },
+  {
+   "AU": "AU17",
+   "prevalence": 0.211,
+   "painface_acc": 0.874,
+   "painface_f1": 0.714,
+   "painface_kappa": 0.633,
+   "openface_acc": 0.779,
+   "openface_f1": 0.588,
+   "openface_kappa": 0.447
+  },
+  {
+   "AU": "AU20",
+   "prevalence": 0.095,
+   "painface_acc": 0.905,
+   "painface_f1": 0.308,
+   "painface_kappa": 0.265,
+   "openface_acc": 0.568,
+   "openface_f1": 0.163,
+   "openface_kappa": 0.01
+  },
+  {
+   "AU": "AU23",
+   "prevalence": 0.158,
+   "painface_acc": 0.8,
+   "painface_f1": 0.457,
+   "painface_kappa": 0.338,
+   "openface_acc": 0.579,
+   "openface_f1": 0.355,
+   "openface_kappa": 0.152
+  },
+  {
+   "AU": "AU25",
+   "prevalence": 0.547,
+   "painface_acc": 0.958,
+   "painface_f1": 0.961,
+   "painface_kappa": 0.915,
+   "openface_acc": 0.947,
+   "openface_f1": 0.95,
+   "openface_kappa": 0.894
+  },
+  {
+   "AU": "AU26",
+   "prevalence": 0.221,
+   "painface_acc": 0.874,
+   "painface_f1": 0.6,
+   "painface_kappa": 0.539,
+   "openface_acc": 0.789,
+   "openface_f1": 0.6,
+   "openface_kappa": 0.462
+  },
+  {
+   "AU": "AU28",
+   "prevalence": 0.074,
+   "painface_acc": 0.947,
+   "painface_f1": 0.667,
+   "painface_kappa": 0.638,
+   "openface_acc": 0.895,
+   "openface_f1": 0.444,
+   "openface_kappa": 0.389
+  }
+ ],
+ "mean_f1_all": 0.629,
+ "mean_f1_painAUs": 0.755,
+ "mean_f1_openface_all": 0.597,
+ "mean_kappa_all": 0.481,
+ "mean_kappa_openface_all": 0.381,
+ "pspi_raw_vs_rating": {
+  "pearson_r": 0.619,
+  "pearson_p": 2.29e-11,
+  "spearman_rho": 0.65,
+  "spearman_p": 1.08e-12,
+  "n": 95
+ },
+ "corrected_vs_rating": {
+  "pearson_r": 0.649,
+  "pearson_p": 1.19e-12,
+  "spearman_rho": 0.664,
+  "spearman_p": 2.18e-13,
+  "n": 95
+ },
+ "by_expression": [
+  {
+   "expression": "angry",
+   "n": 6,
+   "pspi_raw": 11.627,
+   "pspi_frac": 0.727,
+   "corrected": 0.713,
+   "smile": 0.039,
+   "rating": 2.262
+  },
+  {
+   "expression": "disgusted",
+   "n": 14,
+   "pspi_raw": 11.727,
+   "pspi_frac": 0.733,
+   "corrected": 0.692,
+   "smile": 0.109,
+   "rating": 2.71
+  },
+  {
+   "expression": "fearful",
+   "n": 1,
+   "pspi_raw": 6.587,
+   "pspi_frac": 0.412,
+   "corrected": 0.409,
+   "smile": 0.033,
+   "rating": 3.209
+  },
+  {
+   "expression": "happy",
+   "n": 9,
+   "pspi_raw": 11.042,
+   "pspi_frac": 0.69,
+   "corrected": 0.431,
+   "smile": 0.64,
+   "rating": 1.872
+  },
+  {
+   "expression": "pain",
+   "n": 45,
+   "pspi_raw": 14.282,
+   "pspi_frac": 0.893,
+   "corrected": 0.839,
+   "smile": 0.123,
+   "rating": 4.381
+  },
+  {
+   "expression": "sad",
+   "n": 9,
+   "pspi_raw": 9.464,
+   "pspi_frac": 0.591,
+   "corrected": 0.564,
+   "smile": 0.089,
+   "rating": 2.592
+  },
+  {
+   "expression": "surprised",
+   "n": 11,
+   "pspi_raw": 8.533,
+   "pspi_frac": 0.533,
+   "corrected": 0.511,
+   "smile": 0.069,
+   "rating": 2.084
+  }
+ ],
+ "separation_auc": {
+  "pspi_raw": 0.846,
+  "corrected": 0.828
+ },
+ "happy_vs_pain": {
+  "n_happy": 9,
+  "n_pain": 45,
+  "happy_pspi_raw": 11.04,
+  "happy_pspi_pct": 69.0,
+  "happy_corrected_pct": 43.1,
+  "pain_pspi_raw": 14.28,
+  "pain_pspi_pct": 89.3,
+  "pain_corrected_pct": 83.9
+ }
+}

@@ -38,3 +38,7 @@ painface-session.*
 
 # Design-canvas staging (concepts live in the Artifact, not the repo)
 .design-canvas/
+
+# Report render previews
+report/pg*.png
+validation/figs/*.png
