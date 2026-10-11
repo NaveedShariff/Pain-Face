@@ -42,3 +42,5 @@ painface-session.*
 # Report render previews
 report/pg*.png
 validation/figs/*.png
+guide/gp*.png
+guide/shots/_*
