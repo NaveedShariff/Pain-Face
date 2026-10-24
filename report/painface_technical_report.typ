@@ -35,9 +35,10 @@
 ))
 #show table.cell.where(y: 0): set text(weight: 700, size: 8.4pt)
 #show table: set text(8.6pt)
+// Set off by rules alone: no tinted panel, no coloured bar.
 #let note(body) = block(
-  fill: rgb("#f6f5f1"), stroke: (left: 2.2pt + rgb("#eb6834")),
-  inset: (x: 11pt, y: 9pt), radius: 1pt, width: 100%,
+  stroke: (top: 0.7pt + rgb("#111111"), bottom: 0.7pt + rgb("#111111")),
+  inset: (x: 0pt, y: 10pt), width: 100%,
 )[#set text(9.1pt); #body]
 #let kw(body) = text(weight: 700)[#body]
 
