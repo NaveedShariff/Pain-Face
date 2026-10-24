@@ -41,6 +41,11 @@
   inset: (x: 0pt, y: 10pt), width: 100%,
 )[#set text(9.1pt); #body]
 #let kw(body) = text(weight: 700)[#body]
+// Screenshots of the running system, framed by a hairline only.
+#let shot(path, cap, w: 100%) = figure(
+  block(width: w, stroke: 0.5pt + rgb("#d8d7d2"), clip: true)[#image(path, width: 100%)],
+  caption: cap,
+)
 
 // ─────────────────────────────────────────────────────────── title
 #align(center)[
@@ -229,6 +234,14 @@ backpressure on slower hardware without unbounded latency growth.
 
 == Components
 
+#shot("../guide/shots/v1_console_live.png",
+  [The system in operation. Left: the fused index beside the PSPI on its
+  published scale, the severity ramp, and the facial, autonomic and episode
+  cells. Right: the PSPI terms drawn on a face diagram with the live camera
+  inset, so the machine's reading can be checked against the subject.
+  Captured during a live session.])
+
+
 #table(
   columns: (auto, 1fr),
   [Module], [Responsibility],
@@ -260,12 +273,24 @@ documented approximation and a stated limitation (§12). Where true coder
 intensities are available, `pspi_raw()` computes the literal score with no
 approximation.
 
+#shot("../guide/shots/b_units_firing.png",
+  [The four PSPI terms rendered anatomically rather than as a list. Each
+  group's opacity is its own term's strength, and the inset shows the face the
+  reading was taken from. Here the levator term dominates at 0.72 while brow
+  and orbital are quiet.], w: 72%)
+
 == The specificity problem
 
 PSPI is a valid measure of the pain expression, but it is not pain-*specific*.
 AU6 appears in the Duchenne smile; AU10 appears in both smiling and disgust.
 A face expressing enjoyment therefore accumulates PSPI points through terms it
 shares with pain.
+
+#shot("../guide/shots/i_disgust.png",
+  [The confound in practice: a deliberately disgusted expression, scored
+  during a live session. The emotion row reads disgust 62, yet several PSPI
+  action units are active, because disgust and pain genuinely share them.
+  §9.4.1 quantifies how far the correction fails to separate the two.], w: 78%)
 
 This is not hypothetical. On Py-Feat's own bundled sample image — a face the
 model itself classifies as 99% *happy* — raw PSPI evaluates to #kw[7.24 / 16],
@@ -321,6 +346,11 @@ $ 133 <= C_r <= 173, quad 77 <= C_b <= 127 $
 
 computed per pixel from the RGB triple. Hair, lips, eyes and background are
 thereby excluded; they carry no pulse and would otherwise attenuate it.
+
+#shot("../guide/shots/c_capture_roi.png",
+  [The three measurement regions tracked on a live subject: forehead and both
+  cheeks, following the face as it moves, with the detected face box. Only
+  skin-classified pixels inside the outlines contribute to the colour trace.], w: 78%)
 
 == Stage 2: spatial averaging
 
@@ -470,6 +500,12 @@ when one method locks onto a motion artefact its estimate is not merely noisy
 but wrong by tens of bpm, and a mean would be dragged by it while a weighted
 median is not. The weighting lets confident methods decide among themselves.
 
+#shot("../guide/shots/g_method_bank.png",
+  [All eight algorithms running on the same signal, each reporting its own rate
+  and SNR. Disagreement between them is itself a quality indicator: here the
+  estimates span 53 to 77 bpm, the signature of a marginal signal rather than a
+  settled one.], w: 62%)
+
 == Beat detection and inter-beat intervals
 
 Spectral HR gives an average rate; HRV requires individual beat times.
@@ -518,6 +554,13 @@ as an *uncalibrated index only*: without a reference oximeter to fit the
 calibration curve it is not an oxygen saturation, and the interface labels it as
 such.
 
+#shot("../guide/shots/v2_vitals_live.png",
+  [The autonomic channel during a live session. Left: the recovered pulse and
+  its spectrum, 72 bpm from the webcam with no contact sensor. Centre: the
+  derived features, with the HRV measures withheld until the window is long
+  enough (§8). Right: the episode log, recording onset, peak and the action
+  units firing at the worst moment.])
+
 == Autonomic features and baseline normalisation
 
 Six features are passed to the fusion model, each scored against the subject's
@@ -553,6 +596,12 @@ $ I = f dot (1 + k dot d dot (1 - f)), quad k = W_a \/ W_f = 0.25 \/ 0.75 = 1\/3
 
 reported on a 0–10 scale for familiarity with numeric rating scales.
 
+#shot("../guide/shots/a_two_readings.png",
+  [Both scales are reported side by side and given equal typographic weight:
+  the fused index, and the published PSPI it is anchored to. A reader who
+  trusts only the literature can read the PSPI and disregard the fusion;
+  nothing is hidden behind the combined number.], w: 88%)
+
 == Two properties this form guarantees
 
 *Facial evidence is necessary.* At $f = 0$ the expression evaluates to zero for
@@ -574,6 +623,11 @@ fire, and fall below a lower threshold for a *release* period to clear. A
 momentary grimace therefore does not start an episode, and a blink does not end
 one. Defaults: onset 0.30, release 0.18, dwell 0.6 s, release 1.5 s.
 
+#shot("../guide/shots/j_timeline.png",
+  [A detected episode on the live timeline. The shaded band marks the latched
+  interval; the traces are the fused index, the corrected facial score, raw
+  PSPI and the autonomic channel.], w: 92%)
+
 = Abstention: refusing to report
 
 A measurement instrument that reports a plausible wrong number is more dangerous
@@ -586,6 +640,11 @@ machines drop frames, so the arriving rate is measured rather than assumed. Belo
 #kw[7.7 Hz] (2.2 × the band ceiling) heart rate and HRV are withheld with a
 stated reason. This rule was added after observing the system report 52 bpm from
 a 1 Hz trace. §10.2 measures the resulting boundary.
+
+#shot("../guide/shots/o_abstain_banner.png",
+  [Abstention as the operator sees it. Rather than printing a heart rate the
+  arriving frame rate cannot support, the system withholds it and states both
+  the measured rate and the threshold.], w: 72%)
 
 *Short windows.* RMSSD and SDNN are unstable on short records. They are withheld,
 and excluded from the baseline, until the analysis window reaches 30 s.
@@ -931,6 +990,11 @@ python validation/figures.py          # all figures
 Ground truth is read directly from the Delaware distribution's
 `DelawarePainDatabase_StimulusCharacterization_forOSF.xlsx`; no labels were
 re-derived or hand-adjusted.
+
+#shot("../guide/shots/p_protocol_export.png",
+  [Session recording and export. The engine's own record is written at the full
+  rate it measured, as a 46-column CSV and a JSON carrying the per-sample
+  series plus a computed summary with the episode list.], w: 92%)
 
 #v(0.5cm)
 #line(length: 100%, stroke: 0.4pt + rgb("#d8d7d2"))
