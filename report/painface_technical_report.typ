@@ -291,10 +291,237 @@ does what it claims on real faces.
 
 = The autonomic channel
 
-Pain produces sympathetic activation. Six features are extracted from the rPPG
-signal and scored against the subject's own calm baseline, because absolute
-heart rate carries no information about pain while a rise above *this person's*
-rest does.
+Pain produces sympathetic activation, and the same camera that reads the face
+can measure it. This section specifies the full signal chain from pixels to
+heart rate, since that path determines what every downstream autonomic feature
+is worth.
+
+#figure(
+  image("../validation/figs/f9_pipeline.svg", width: 86%),
+  caption: [The rPPG chain on a synthetic trace of known rate (72.0 bpm).
+  (a) spatially averaged skin colour; (b) the recovered pulse after projection,
+  detrending and band-passing, with detected beats and one inter-beat interval
+  marked; (c) the power spectrum, with the estimate taken from the dominant
+  in-band peak at $f_0$ and the de Haan SNR bands shaded. Recovered rate
+  72.07 bpm.],
+)
+
+== Stage 1: region selection and skin segmentation
+
+Three regions are tracked from the MediaPipe 478-point face mesh: the forehead
+and both cheeks, taken as convex hulls of fixed landmark sets. They are chosen
+for dense superficial microvasculature and relative freedom from hair, eyebrow
+and nasolabial shadow.
+
+Within each hull, pixels are admitted only if they fall in the Chai and Ngan
+chrominance range for skin,
+
+$ 133 <= C_r <= 173, quad 77 <= C_b <= 127 $
+
+computed per pixel from the RGB triple. Hair, lips, eyes and background are
+thereby excluded; they carry no pulse and would otherwise attenuate it.
+
+== Stage 2: spatial averaging
+
+For frame $n$ and channel $c in {R, G, B}$, each region $k$ yields a mean over
+its admitted pixel set $Omega_k (n)$, and the three regions are combined by
+pixel count so that larger, better-conditioned regions dominate:
+
+$ C_c (n) = (sum_k sum_(p in Omega_k (n)) I_c (p, n)) / (sum_k abs(Omega_k (n))) $
+
+Spatial averaging over $10^3$–$10^4$ pixels is what makes the measurement
+possible at all: the per-pixel pulsatile modulation is far below camera noise,
+and averaging reduces that noise by roughly $sqrt(N)$ while the pulse, being
+spatially coherent, is preserved.
+
+== Stage 3: uniform resampling
+
+Browser frame timestamps are irregular. The three traces are sorted, duplicate
+timestamps dropped, and linearly interpolated onto a uniform grid at
+$f_s = 30$ Hz. Every subsequent stage assumes uniform sampling; §8 describes
+what happens when the arriving rate cannot support it.
+
+== Stage 4: temporal normalisation
+
+Each channel is divided by its own temporal mean over the window,
+
+$ C_n (t) = C(t) \/ macron(C) $
+
+which removes the dependence on absolute illumination and skin tone, leaving
+the relative modulation that carries the pulse. The chrominance methods below
+operate on $C_n$ in short sliding windows (1.6 s, Hann-weighted, 50 % overlap,
+overlap-added), so that slow illumination drift cannot bias the projection.
+
+== Stage 5: pulse extraction, eight algorithms
+
+Each method reduces the three normalised channels to one scalar waveform. They
+differ in how they suppress motion and illumination artefacts, which share the
+colour subspace with the pulse.
+
+*GREEN* @verkruysse2008 takes the green channel alone, where haemoglobin
+absorption is strongest: $S = G \/ macron(G)$.
+
+*CHROM* @dehaan2013 forms two chrominance signals from a standardised skin-tone
+assumption and combines them so that the specular motion component cancels:
+
+$ X_s = 3R_n - 2G_n, quad Y_s = 1.5 R_n + G_n - 1.5 B_n, quad
+  S = X_s - (sigma(X_s) \/ sigma(Y_s)) Y_s $
+
+*POS* @wang2017 projects onto a plane orthogonal to the specular direction and
+applies the same alpha-tuning:
+
+$ S_1 = G_n - B_n, quad S_2 = G_n + B_n - 2R_n, quad
+  S = S_1 + (sigma(S_1) \/ sigma(S_2)) S_2 $
+
+*PBV* @dehaan2014 uses the blood-volume signature $p_("bv")$, the normalised
+vector of per-channel standard deviations, to find the weighting that best
+explains the observed covariance:
+
+$ W = (C_z C_z^T + epsilon I)^(-1) p_("bv"), quad S = (C_z^T W) \/ (p_("bv") dot W) $
+
+where $C_z$ is the mean-centred normalised matrix.
+
+*LGI* @pilz2018 removes the dominant subspace, which carries illumination
+change, via the singular value decomposition $X = U Sigma V^T$:
+
+$ S = [(I - u_1 u_1^T) X]_G, quad u_1 = "first column of" U $
+
+*OMIT* @alvarez2023 achieves the same orthogonalisation through a QR
+decomposition, which is cheaper and better conditioned:
+$S = [(I - q_1 q_1^T) X]_G$.
+
+*PCA* and *ICA* @lewandowska2011 @poh2010 are blind source separation. PCA takes
+the eigenvectors of the channel covariance; ICA uses symmetric FastICA with the
+logcosh contrast, whitening first by eigendecomposition. Both produce three
+candidate components, and neither orders them by physiological relevance, so the
+component is chosen by in-band spectral concentration,
+
+$ rho(x) = max_(f in B) P(f) \/ sum_(f in B) P(f), quad B = [0.7, 3.5] "Hz" $
+
+selecting the candidate whose power is most concentrated at a single plausible
+cardiac frequency.
+
+== Stage 6: detrending
+
+Extracted waveforms carry low-frequency drift from illumination and slow head
+motion. We apply smoothness-priors detrending @tarvainen2002, which removes a
+trend defined by a second-difference penalty rather than a fixed polynomial:
+
+$ z_("trend") = (I + lambda^2 D_2^T D_2)^(-1) z, quad z_("stat") = z - z_("trend") $
+
+with $lambda = 100$ and $D_2$ the second-order difference operator. The system
+is sparse and solved directly. Unlike a high-pass filter, this introduces no
+phase distortion at the band edge, which matters because beat timing is
+extracted downstream.
+
+== Stage 7: band-pass filtering
+
+A third-order Butterworth band-pass restricted to $[0.7, 3.5]$ Hz (42–210 bpm)
+is applied *zero-phase*, forward and backward, in second-order-section form.
+Zero-phase filtering is not a cosmetic choice: a causal filter would shift
+every beat by a frequency-dependent delay and corrupt the inter-beat intervals
+on which all HRV metrics depend.
+
+== Stage 8: spectral estimation and heart rate
+
+The heart rate is taken from the dominant spectral peak inside the cardiac
+band. Two estimates are computed.
+
+The *periodogram* estimate applies a Hann window and zero-pads to at least 4096
+points. Zero-padding does not add information, but it interpolates the spectrum
+so the peak can be located more precisely. The peak bin $k$ is then refined to
+sub-bin resolution by fitting a parabola through the three surrounding points in
+the log-power domain, which is the correct interpolant for a Gaussian-shaped
+windowed peak:
+
+$ delta = (1/2) (ln P_(k-1) - ln P_(k+1)) / (ln P_(k-1) - 2 ln P_k + ln P_(k+1)),
+  quad f_0 = f_k + delta dot Delta f $
+
+$ "HR" = 60 f_0 quad ["bpm"] $
+
+Without this refinement the resolution would be limited to $Delta f = f_s \/ N_("fft")$;
+with it, the error on a clean synthetic signal falls below 0.1 bpm (§10.3).
+
+A *Welch* estimate (8 s segments, 50 % overlap) is computed in parallel. It
+trades frequency resolution for variance reduction, and large disagreement
+between the two is itself a signal-quality warning.
+
+== Stage 9: signal quality
+
+Each method's output is scored with the signal-to-noise ratio of de Haan and
+Jeanne @dehaan2013, which treats power at the fundamental and its second
+harmonic as signal and everything else in $[0.5, 4]$ Hz as noise:
+
+$ "SNR" = 10 log_10 ( (sum_(f in cal(S)) P(f)) / (sum_(f in cal(N)) P(f)) ) $
+
+$ cal(S) = {f : abs(f - f_0) <= 0.1 or abs(f - 2 f_0) <= 0.2}, quad
+  cal(N) = [0.5, 4] without cal(S) $
+
+The second harmonic is included because the arterial pulse is not sinusoidal:
+the dicrotic notch places real physiological power at $2 f_0$, and excluding it
+would penalise a good signal.
+
+== Stage 10: fusion across methods
+
+The eight estimates are combined by a *weighted median* rather than a mean,
+with weights $w_i = max("SNR"_i, -10) + 10$. The median is chosen deliberately:
+when one method locks onto a motion artefact its estimate is not merely noisy
+but wrong by tens of bpm, and a mean would be dragged by it while a weighted
+median is not. The weighting lets confident methods decide among themselves.
+
+== Beat detection and inter-beat intervals
+
+Spectral HR gives an average rate; HRV requires individual beat times.
+
+The waveform is re-filtered into an HR-adaptive band $[0.6 f_0, 1.6 f_0]$, which
+suppresses the second harmonic so the dicrotic notch is not detected as a beat.
+After z-scoring, peaks are found subject to a refractory distance of
+$0.6 times 60 \/ "HR"$ seconds and a prominence floor of 0.35. Any pair closer
+than 70 % of the median interval is merged, keeping the taller. Each retained
+peak time is then refined by the same parabolic interpolation used in the
+spectrum, giving sub-sample timing.
+
+Intervals are accepted only within physiological range, $0.28 < "IBI" < 1.6$ s,
+and within 20 % of the rolling median. The rejected fraction is reported as
+`artifact_pct`; it is a quality figure in its own right.
+
+== HRV metrics
+
+From the accepted interval series the standard time-domain measures are
+computed: SDNN, RMSSD, SDSD, pNN50 and pNN20, together with the Poincaré
+descriptors $"SD1" = sqrt(1\/2) sigma(Delta "RR")$ and
+$"SD2" = sqrt(2 sigma^2("RR") - "SD1"^2)$, and the Baevsky stress index
+$"AMo" \/ (2 "Mo" dot "MxDMn")$ on 50 ms bins.
+
+Frequency-domain measures require an evenly sampled tachogram, so the intervals
+are cubic-spline interpolated to 4 Hz and a Welch spectrum is integrated over
+the Task Force bands @taskforce1996: VLF 0.0033–0.04 Hz, LF 0.04–0.15 Hz, HF
+0.15–0.4 Hz, yielding LF/HF and normalised units.
+
+== Respiration
+
+Breathing modulates the pulse in three ways, and all three are estimated and
+median-fused. *RIIV*, baseline intensity modulation, is recovered by detrending
+the normalised green channel with a longer prior ($lambda = 300$) and
+band-passing to 0.1–0.5 Hz. *RIAV*, pulse amplitude modulation, is taken from
+the envelope of detected beat amplitudes resampled to 4 Hz. *RSA*, respiratory
+sinus arrhythmia, is the dominant peak of the tachogram spectrum within the same
+band. Agreement between three mechanisms is stronger evidence than any one.
+
+== Perfusion and the SpO#sub[2] ratio
+
+The perfusion index is the pulsatile fraction of the green channel,
+$"PI" = 100 dot 2 sigma("AC") \/ "DC"$, which falls under vasoconstriction. The
+ratio-of-ratios $R = ("AC"\/"DC")_R \/ ("AC"\/"DC")_B$ is computed and displayed
+as an *uncalibrated index only*: without a reference oximeter to fit the
+calibration curve it is not an oxygen saturation, and the interface labels it as
+such.
+
+== Autonomic features and baseline normalisation
+
+Six features are passed to the fusion model, each scored against the subject's
+own calm baseline, because absolute heart rate carries no information about pain
+while a rise above *this person's* rest does.
 
 #table(
   columns: (auto, auto, auto, 1fr),
@@ -307,12 +534,12 @@ rest does.
   [Perfusion index], [↓], [0.15 %], [peripheral vasoconstriction],
 )
 
-Each feature is converted to a signed z-score against the baseline, with a
-minimum standard deviation (the "SD floor") so that an unusually steady rest
-period cannot magnify ordinary jitter into a large deviation. Scores are
-saturated and averaged to an arousal value in $[0,1]$ where 0.5 denotes "at
-baseline". Until the baseline holds sufficient samples, the channel reports
-`ready = false` and contributes nothing.
+Each is converted to a signed z-score against the baseline, with a minimum
+standard deviation (the "SD floor") so that an unusually steady rest period
+cannot magnify ordinary jitter into a large deviation. Scores are saturated and
+averaged to an arousal value in $[0,1]$ where 0.5 denotes "at baseline". Until
+the baseline holds sufficient samples the channel reports `ready = false` and
+contributes nothing.
 
 = Multimodal fusion
 
