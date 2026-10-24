@@ -44,3 +44,6 @@ report/pg*.png
 validation/figs/*.png
 guide/gp*.png
 guide/shots/_*
+
+# Rendered demo video (source recording is not in the repo)
+video/*.mp4
