@@ -165,8 +165,15 @@ class AUEngine:
         import torch
         return torch.from_numpy(np.ascontiguousarray(rgb)).permute(2, 0, 1).unsqueeze(0)
 
-    def analyze_frame(self, frame_rgb: np.ndarray, t: float = 0.0) -> FaceResult:
-        """Analyse one RGB frame. Returns ok=False when no face is found."""
+    def analyze_frame(self, frame_rgb: np.ndarray, t: float = 0.0,
+                      max_wait_s: float = 0.25) -> FaceResult:
+        """Analyse one RGB frame. Returns ok=False when no face is found.
+
+        The detector is a single shared model, so concurrent clients contend
+        for it. Waiting is bounded: a client that cannot get the model within
+        `max_wait_s` is told the detector is busy and drops that frame, rather
+        than queueing behind everyone else and reporting stale action units.
+        """
         if not self.ready and not self.warm():
             return FaceResult(False, t, reason=self._init_error or "detector unavailable")
 
@@ -180,13 +187,17 @@ class AUEngine:
                              interpolation=cv2.INTER_AREA)
 
         t0 = time.perf_counter()
+        if not self._lock.acquire(timeout=max_wait_s):
+            return FaceResult(False, t, reason="detector busy",
+                              detect_ms=1000 * (time.perf_counter() - t0))
         try:
-            with self._lock:
-                fex = self._detector.detect(self._to_tensor(img), data_type="tensor",
-                                            progress_bar=False)
+            fex = self._detector.detect(self._to_tensor(img), data_type="tensor",
+                                        progress_bar=False)
         except Exception as e:                            # noqa: BLE001
             return FaceResult(False, t, reason=f"{type(e).__name__}: {e}",
                               detect_ms=1000 * (time.perf_counter() - t0))
+        finally:
+            self._lock.release()
         dt = 1000 * (time.perf_counter() - t0)
         self._frames += 1
         self._total_ms += dt

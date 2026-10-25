@@ -25,10 +25,12 @@ from __future__ import annotations
 
 import asyncio
 import json
+import secrets
 import logging
 import os
 import tempfile
 import time
+from collections import OrderedDict
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -58,10 +60,15 @@ AU_WIDTH = int(os.environ.get("PAINFACE_WIDTH", "480"))
 
 engine = AUEngine(device=AU_DEVICE, width=AU_WIDTH)
 
-# The most recent live session, so the browser's export buttons can fetch the
-# engine's own full-rate record over plain HTTP. This is a single-subject
-# localhost instrument; it deliberately keeps one session rather than a store.
+# Sessions are held per connection, so several people can use one deployment
+# without overwriting each other's recording. Exports are addressed by the
+# session id handed out at connect; a request with no id falls back to the
+# most recent, which keeps the single-user localhost case unchanged.
+MAX_CLIENTS = int(os.environ.get("PAINFACE_MAX_CLIENTS", "8"))
+SESSIONS: "OrderedDict[str, PainSession]" = OrderedDict()
+SESSION_CAP = 64
 _last_session: Optional["PainSession"] = None
+_clients = 0
 app = FastAPI(title="Pain-Face", version=__version__,
               description="Multimodal pain intensity from facial action units and rPPG.")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -81,6 +88,7 @@ async def _warm() -> None:
 @app.get("/api/health")
 def health() -> dict:
     return {"ok": True, "app": "Pain-Face", "version": __version__,
+            "clients": _clients, "max_clients": MAX_CLIENTS,
             "au": engine.status(),
             "pspi": {"max": PSPI_MAX,
                      "terms": [{"label": l, "aus": list(c), "points": p} for l, c, p in PSPI_TERMS]},
@@ -160,7 +168,7 @@ def analyze_video_session(path: str, au_every: int = 5, primary: str = "POS",
     out["timeline"] = session.timeline(("t", "nrs", "pspi", "corrected", "smile",
                                         "autonomic", "confidence", "triggered"))
     out["au_status"] = engine.status()
-    _publish(session)
+    _publish(session, "offline")
     return session, out
 
 
@@ -207,10 +215,11 @@ class LiveState:
     """Everything one WebSocket connection owns."""
 
     def __init__(self) -> None:
+        self.sid = secrets.token_hex(6)
         self.vitals = VitalsBuffer(window_s=20.0)
         self.baseline = fusion.Baseline(min_n=15)
         self.trigger = fusion.Trigger()
-        self.session = _publish(PainSession())
+        self.session = _publish(PainSession(), self.sid)
         self.recording = False
         self.calibrating = False
         self.t0 = time.perf_counter()
@@ -228,9 +237,16 @@ class LiveState:
 
 @app.websocket("/ws/live")
 async def ws_live(ws: WebSocket) -> None:
+    global _clients
     await ws.accept()
+    if _clients >= MAX_CLIENTS:
+        await ws.send_text(json.dumps({"type": "full", "max_clients": MAX_CLIENTS}))
+        await ws.close()
+        return
+    _clients += 1
     st = LiveState()
     await ws.send_text(json.dumps({"type": "hello", "version": __version__,
+                                   "sid": st.sid, "clients": _clients,
                                    "au": engine.status(),
                                    "pain_aus": list(PAIN_AUS),
                                    "au_names": AU_NAMES,
@@ -249,8 +265,9 @@ async def ws_live(ws: WebSocket) -> None:
     except Exception as e:                                # noqa: BLE001
         log.warning("live session ended: %s: %s", type(e).__name__, e)
     finally:
-        log.info("live closed — frames %d (dropped %d), samples %d",
-                 st.frames_in, st.frames_dropped, len(st.session.samples))
+        _clients = max(_clients - 1, 0)
+        log.info("live closed %s — frames %d (dropped %d), samples %d, %d client(s) left",
+                 st.sid, st.frames_in, st.frames_dropped, len(st.session.samples), _clients)
 
 
 async def _on_text(ws: WebSocket, st: LiveState, text: str) -> None:
@@ -306,12 +323,12 @@ async def _on_text(ws: WebSocket, st: LiveState, text: str) -> None:
     elif kind == "session":
         action = m.get("action")
         if action == "start":
-            st.session = _publish(PainSession(label=str(m.get("label") or "")))
+            st.session = _publish(PainSession(label=str(m.get("label") or "")), st.sid)
             st.recording = True
         elif action == "stop":
             st.recording = False
         elif action == "reset":
-            st.session = _publish(PainSession())
+            st.session = _publish(PainSession(), st.sid)
             st.recording = False
         await _send(ws, {"type": "session", "recording": st.recording,
                          "summary": st.session.summary()})
@@ -349,11 +366,28 @@ async def _on_text(ws: WebSocket, st: LiveState, text: str) -> None:
         await _send(ws, {"type": "pong", "t": round(st.t, 3)})
 
 
-def _publish(session: "PainSession") -> "PainSession":
-    """Make `session` the one the REST export endpoints serve."""
+def _publish(session: "PainSession", sid: Optional[str] = None) -> "PainSession":
+    """Register `session` so the export endpoints can serve it."""
     global _last_session
     _last_session = session
+    if sid:
+        SESSIONS[sid] = session
+        SESSIONS.move_to_end(sid)
+        while len(SESSIONS) > SESSION_CAP:
+            SESSIONS.popitem(last=False)
     return session
+
+
+def _resolve(sid: Optional[str]) -> "PainSession":
+    """The session a request is asking for, or the most recent one."""
+    if sid:
+        s = SESSIONS.get(sid)
+        if s is None:
+            raise HTTPException(404, f"No session {sid}. It may have expired.")
+        return s
+    if _last_session is None:
+        raise HTTPException(404, "No session recorded yet.")
+    return _last_session
 
 
 async def _on_frame(ws: WebSocket, st: LiveState, data: bytes) -> None:
@@ -376,6 +410,8 @@ async def _on_frame(ws: WebSocket, st: LiveState, data: bytes) -> None:
         payload: Dict[str, Any] = {"type": "au", "t": round(t, 3),
                                    "face": face.as_dict(st.send_landmarks, st.send_blendshapes),
                                    "frames": st.frames_in, "dropped": st.frames_dropped}
+        if not face.ok and face.reason == "detector busy":
+            st.frames_dropped += 1          # another client holds the model
         if face.ok:
             feats = st.vitals.features()
             if st.calibrating:
@@ -424,25 +460,19 @@ def index() -> FileResponse:
 
 
 @app.get("/api/session")
-def session_summary() -> dict:
-    if _last_session is None:
-        raise HTTPException(404, "No session recorded yet.")
-    return _last_session.summary()
+def session_summary(sid: Optional[str] = None) -> dict:
+    return _resolve(sid).summary()
 
 
 @app.get("/api/session.json")
-def session_json() -> Response:
-    if _last_session is None:
-        raise HTTPException(404, "No session recorded yet.")
-    return Response(_last_session.to_json(), media_type="application/json",
+def session_json(sid: Optional[str] = None) -> Response:
+    return Response(_resolve(sid).to_json(), media_type="application/json",
                     headers={"Content-Disposition": 'attachment; filename="painface-session.json"'})
 
 
 @app.get("/api/session.csv")
-def session_csv() -> Response:
-    if _last_session is None:
-        raise HTTPException(404, "No session recorded yet.")
-    return Response(_last_session.to_csv(), media_type="text/csv",
+def session_csv(sid: Optional[str] = None) -> Response:
+    return Response(_resolve(sid).to_csv(), media_type="text/csv",
                     headers={"Content-Disposition": 'attachment; filename="painface-session.csv"'})
 
 

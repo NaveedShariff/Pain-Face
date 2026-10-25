@@ -6,7 +6,8 @@ from the recording's own arc and stop before the engine disconnects at 102 s.
 import cv2, numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
-SRC = "/Users/mohammednaveedshariff/Desktop/rppg demo.mov"
+import os
+SRC = os.environ.get("PAINFACE_DEMO", "demo.mov")   # set to your recording
 OUT = "video/Pain-Face_demo.mp4"
 W, H, FPS = 1456, 829, 30
 

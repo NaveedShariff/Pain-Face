@@ -572,7 +572,7 @@ const S = {
   source: "camera", running: false, ws: null, wsOk: false,
   t0: 0, frames: 0, frameTimes: [], auTimes: [],
   rgbQueue: [], lastAuSent: 0, auInterval: 1000 / 6,
-  landmarker: null, lmLoading: false, lmFailed: false,
+  landmarker: null, lmLoading: false, lmFailed: false, sid: null,
   face: null, pain: null, vitals: null, baseline: null, detector: null,
   auNames: {}, painAus: [], detectedAus: [], pspiMax: 16,
   timeline: [], maxTl: 1200, episodes: [], liveEp: [], recording: false, calibrating: false,
@@ -644,7 +644,12 @@ function sendCfg(){
 
 function onMessage(m){
   switch (m.type){
+    case "full":
+      chip("chipWs", "bad", "engine full");
+      log(`engine is serving ${m.max_clients} people already — try again shortly`);
+      break;
     case "hello":
+      S.sid = m.sid || null;
       S.auNames = m.au_names || {}; S.painAus = m.pain_aus || []; S.pspiMax = m.pspi_max || 16;
       S.detector = m.au; S.detectedAus = (m.au && m.au.aus) || [];
       buildAuGrid(); buildMethodSelect(m.au);
@@ -1575,7 +1580,9 @@ $("btnReset").onclick = () => {
 async function grab(kind){
   const base = ($("engUrl").value || location.origin).replace(/\/+$/, "");
   try {
-    const r = await fetch(`${base}/api/session.${kind}`);
+    /* ask for this connection's own recording, not whoever recorded last */
+    const q = S.sid ? `?sid=${encodeURIComponent(S.sid)}` : "";
+    const r = await fetch(`${base}/api/session.${kind}${q}`);
     if (!r.ok) throw new Error("HTTP " + r.status);
     const blob = await r.blob();
     const a = document.createElement("a");

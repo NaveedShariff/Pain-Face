@@ -6,9 +6,10 @@ method bank compares, what the fusion does across its input range, and how
 fast the detector runs.
 """
 import json, sys, time, warnings
+from pathlib import Path
 import numpy as np
 warnings.filterwarnings("ignore")
-sys.path.insert(0, "/Users/mohammednaveedshariff/Shariff/Research/RPPG/rppg-lab")
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import rppg_core as core
 from painface import fusion as F
 from painface.vitals import VitalsBuffer, MIN_EFFECTIVE_FS

@@ -51,3 +51,9 @@ video/*.mp4
 # Word build intermediates
 report/eq/
 report/*.docx
+
+# Delaware Pain Database derived tables: these carry the database's own
+# FACS coding and observer ratings. Regenerate locally with
+# validation/run_delaware.py; our computed findings stay in results.json.
+validation/delaware_truth.csv
+validation/delaware_scored.csv
