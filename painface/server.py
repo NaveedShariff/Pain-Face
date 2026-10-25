@@ -489,11 +489,16 @@ if STATIC.is_dir():
 
 
 def main() -> None:
+    # Binds to loopback by default so a laptop run is not exposed on the LAN.
+    # A container sets PAINFACE_HOST=0.0.0.0 to accept forwarded traffic.
+    host = os.environ.get("PAINFACE_HOST", "127.0.0.1")
     port = int(os.environ.get("PORT", 8000))
-    print(f"\n  Pain-Face  →  http://localhost:{port}"
-          f"\n  API docs   →  http://localhost:{port}/docs"
-          f"\n  detector   →  Py-Feat Detectorv2 on {engine.device} @ {engine.width}px\n")
-    uvicorn.run(app, host="127.0.0.1", port=port, log_level="info")
+    shown = "localhost" if host in ("127.0.0.1", "0.0.0.0") else host
+    print(f"\n  Pain-Face  →  http://{shown}:{port}"
+          f"\n  API docs   →  http://{shown}:{port}/docs"
+          f"\n  detector   →  Py-Feat Detectorv2 on {engine.device} @ {engine.width}px"
+          f"\n  clients    →  up to {MAX_CLIENTS}\n")
+    uvicorn.run(app, host=host, port=port, log_level="info")
 
 
 if __name__ == "__main__":

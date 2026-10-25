@@ -1730,6 +1730,12 @@ $("btnRun").onclick = () => S.running ? stop() : start();
     chip("chipDet", h.au.ready ? "on" : "warn", "detector " + (h.au.ready ? h.au.device : "warming"));
     $("trigThr").value = Math.round((h.fusion.trigger_on || 0.3) * 100);
     $("trigOut").textContent = $("trigThr").value;
+    /* A CPU-hosted engine manages about one detection a second. Asking for six
+       would simply queue frames that get dropped, so match the hardware. */
+    const slow = (h.au.device || "") === "cpu";
+    const rate = slow ? 2 : 6;
+    $("auRate").value = rate; $("auOut").textContent = rate; S.auInterval = 1000 / rate;
+    if (slow) log("engine is running on CPU — action-unit rate set to 2/s to match");
     log(`engine ready · Py-Feat on ${h.au.device} · ${S.detectedAus.length} AUs · PSPI max ${S.pspiMax}`);
   } catch {
     chip("chipWs", "bad", "engine off");

@@ -1,0 +1,15 @@
+.git
+.venv
+.venv311
+.design-canvas
+__pycache__
+*.pyc
+.pytest_cache
+report/eq
+report/pg*.png
+report/*.docx
+guide/gp*.png
+video/*.mp4
+validation/delaware_*.csv
+*.mov
+*.mp4
