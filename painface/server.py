@@ -37,8 +37,8 @@ from typing import Any, Dict, List, Optional
 import anyio
 import numpy as np
 import uvicorn
-from fastapi import (FastAPI, File, Form, HTTPException, UploadFile, WebSocket,
-                     WebSocketDisconnect)
+from fastapi import (FastAPI, File, Form, HTTPException, Request, UploadFile,
+                     WebSocket, WebSocketDisconnect)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -378,13 +378,28 @@ def _publish(session: "PainSession", sid: Optional[str] = None) -> "PainSession"
     return session
 
 
-def _resolve(sid: Optional[str]) -> "PainSession":
-    """The session a request is asking for, or the most recent one."""
+LOOPBACK = {"127.0.0.1", "::1", "localhost", "testclient"}
+
+
+def _resolve(sid: Optional[str], request: Optional[Request] = None) -> "PainSession":
+    """The session a request is asking for.
+
+    Omitting the id falls back to the most recent session, which keeps the
+    single-user localhost workflow convenient. That fallback is restricted to
+    loopback callers: once this server is reachable from outside the machine,
+    an unauthenticated request with no id would otherwise hand a stranger
+    whoever recorded last.
+    """
     if sid:
         s = SESSIONS.get(sid)
         if s is None:
             raise HTTPException(404, f"No session {sid}. It may have expired.")
         return s
+    host = (request.client.host if request and request.client else None)
+    if host not in LOOPBACK:
+        raise HTTPException(
+            400, "A session id is required. Recordings are per-connection; "
+                 "the id is issued when the live socket connects.")
     if _last_session is None:
         raise HTTPException(404, "No session recorded yet.")
     return _last_session
@@ -460,19 +475,19 @@ def index() -> FileResponse:
 
 
 @app.get("/api/session")
-def session_summary(sid: Optional[str] = None) -> dict:
-    return _resolve(sid).summary()
+def session_summary(request: Request, sid: Optional[str] = None) -> dict:
+    return _resolve(sid, request).summary()
 
 
 @app.get("/api/session.json")
-def session_json(sid: Optional[str] = None) -> Response:
-    return Response(_resolve(sid).to_json(), media_type="application/json",
+def session_json(request: Request, sid: Optional[str] = None) -> Response:
+    return Response(_resolve(sid, request).to_json(), media_type="application/json",
                     headers={"Content-Disposition": 'attachment; filename="painface-session.json"'})
 
 
 @app.get("/api/session.csv")
-def session_csv(sid: Optional[str] = None) -> Response:
-    return Response(_resolve(sid).to_csv(), media_type="text/csv",
+def session_csv(request: Request, sid: Optional[str] = None) -> Response:
+    return Response(_resolve(sid, request).to_csv(), media_type="text/csv",
                     headers={"Content-Disposition": 'attachment; filename="painface-session.csv"'})
 
 

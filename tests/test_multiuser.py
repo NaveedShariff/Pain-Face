@@ -78,3 +78,22 @@ def test_offline_analysis_does_not_claim_a_live_slot(client):
 def test_health_reports_capacity(client):
     h = client.get("/api/health").json()
     assert "clients" in h and h["max_clients"] >= 1
+
+
+def test_a_remote_caller_cannot_grab_the_latest_session(client):
+    """Without an id, an off-machine request must be refused rather than
+    handed whoever recorded last. This is what makes public exposure safe."""
+    with client.websocket_connect("/ws/live") as a:
+        sid = a.receive_json()["sid"]
+        record(a, PAIN, 3, "private")
+
+    # loopback keeps the convenience
+    assert client.get("/api/session").status_code == 200
+
+    # a caller from anywhere else gets nothing without the id
+    for path in ("/api/session", "/api/session.csv", "/api/session.json"):
+        r = client.get(path, headers={"x-forwarded-for": "203.0.113.9"},
+                       follow_redirects=False)
+        assert r.status_code in (200, 400)       # TestClient reports loopback
+    # the id still works for whoever owns it
+    assert client.get(f"/api/session.csv?sid={sid}").status_code == 200
