@@ -503,7 +503,7 @@ footer em{font-style:normal;font-weight:800;color:var(--ink);letter-spacing:-.02
   <section class="c8" aria-label="Protocol">
     <div class="hd"><h2>Protocol</h2><span class="aux" id="sessAux">0 samples</span></div>
     <div class="fields">
-      <div class="field"><label for="engUrl">Engine</label><input id="engUrl" type="text" value="http://localhost:8000"></div>
+      <div class="field"><label for="engUrl">Engine</label><input id="engUrl" type="text" value=""></div>
       <div class="field"><label for="selPrimary">Waveform method</label><select id="selPrimary"></select></div>
       <div class="field"><label for="winSec">HR window <b><output id="winOut">20</output></b> s</label><input id="winSec" type="range" min="8" max="60" step="1" value="20"></div>
       <div class="field"><label for="auRate">AU rate <b><output id="auOut">6</output></b> /s</label><input id="auRate" type="range" min="1" max="15" step="1" value="6"></div>
@@ -1717,6 +1717,14 @@ $("btnRun").onclick = () => S.running ? stop() : start();
   setSpeedo(null);
   setSteps(null);
   $("liveInset").hidden = S.source !== "camera";
+  /* Default the engine to wherever this page came from. Shipping a literal
+     localhost here meant a visitor's browser looked on their own machine and
+     found nothing, so a shared link could never connect. */
+  if (!$("engUrl").value) {
+    $("engUrl").value = location.protocol.startsWith("http")
+      ? location.origin : "http://localhost:8000";
+  }
+
   renderSession(); renderBaseline(); renderEpisodes(); renderMethods(); drawAll();
 
   /* probe the engine so the header is honest before anyone presses Start */
