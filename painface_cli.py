@@ -20,7 +20,7 @@ import sys
 import numpy as np
 
 from painface import fusion
-from painface.au import AUEngine
+from painface.au import AUEngine, set_shared_engine
 from painface.pspi import AU_NAMES, PAIN_AUS
 from painface.session import PainSession
 
@@ -139,7 +139,7 @@ def main() -> None:
         report(session)
     elif a.video:
         import painface.server as srv
-        srv.engine = AUEngine(device=a.device)
+        srv.engine = set_shared_engine(AUEngine(device=a.device))
         print(f"Analysing {a.video} … (every {a.every} frames)")
         session, out = srv.analyze_video_session(
             a.video, au_every=a.every, primary=a.primary, max_seconds=a.max_seconds,

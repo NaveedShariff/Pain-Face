@@ -16,7 +16,8 @@ uvicorn[standard]>=0.27        # the [standard] extra brings the WebSocket layer
 websockets>=12                 # explicit: /ws/live is 404 without it
 python-multipart>=0.0.9        # video upload on /api/video
 
-# Video decoding and offline plots
+# Video decoding and offline plots. OpenCV 5 dropped the Haar cascade API, so
+# face boxes for rPPG come from the py-feat detector above, not from cv2.
 opencv-python>=4.8
 matplotlib>=3.7
 
