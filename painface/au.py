@@ -314,3 +314,29 @@ class AUEngine:
         finally:
             cap.release()
         return out
+
+
+# -- process-wide instance ------------------------------------------------
+# One detector per process, shared by the server, the offline CLI and the rPPG
+# ROI finder in `rppg_video`. A second AUEngine would mean a second copy of the
+# network in memory and a second ~80 s warm-up, so everything that needs a face
+# box goes through here.
+_shared: Optional[AUEngine] = None
+_shared_lock = threading.Lock()
+
+
+def shared_engine(device: str = "auto", width: int = DEFAULT_WIDTH) -> AUEngine:
+    """The process-wide engine, built on first use with these settings."""
+    global _shared
+    with _shared_lock:
+        if _shared is None:
+            _shared = AUEngine(device=device, width=width)
+        return _shared
+
+
+def set_shared_engine(engine: AUEngine) -> AUEngine:
+    """Install `engine` as the process-wide one, e.g. for a CLI --device flag."""
+    global _shared
+    with _shared_lock:
+        _shared = engine
+    return engine

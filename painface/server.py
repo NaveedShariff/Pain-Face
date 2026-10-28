@@ -44,7 +44,7 @@ from fastapi.responses import FileResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from . import __version__, fusion
-from .au import AUEngine
+from .au import shared_engine
 from .pspi import AU_NAMES, DETECTED_AUS, PAIN_AUS, PSPI_MAX, PSPI_TERMS
 from .session import PainSession
 from .vitals import VitalsBuffer
@@ -58,7 +58,9 @@ STATIC = ROOT / "static"
 AU_DEVICE = os.environ.get("PAINFACE_DEVICE", "auto")
 AU_WIDTH = int(os.environ.get("PAINFACE_WIDTH", "480"))
 
-engine = AUEngine(device=AU_DEVICE, width=AU_WIDTH)
+# The same instance backs the rPPG ROI finder in `rppg_video`, so a video
+# pass loads one face model rather than two.
+engine = shared_engine(device=AU_DEVICE, width=AU_WIDTH)
 
 # Sessions are held per connection, so several people can use one deployment
 # without overwriting each other's recording. Exports are addressed by the
